@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import ReactDOM from 'react-dom';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, ReferenceLine, ComposedChart } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const BearingApp = () => {
   // Person 1 (primary) - Demo data defaults
+  const [person1Enabled, setPerson1Enabled] = useState(true); // Always enabled
   const [dob, setDob] = useState('04/29/1964');
   const [person1Sex, setPerson1Sex] = useState('male'); // For actuarial tables
   const [person1LifeExpectancy, setPerson1LifeExpectancy] = useState(82);
@@ -26,6 +26,9 @@ const BearingApp = () => {
   const [person2SrsAmount, setPerson2SrsAmount] = useState(0);
   const [person2SsAmount, setPerson2SsAmount] = useState(0);
   const [person2SsStartAge, setPerson2SsStartAge] = useState(67);
+  const [person2FersCola, setPerson2FersCola] = useState(2.6);
+  const [person2SrsCola, setPerson2SrsCola] = useState(2.6);
+  const [person2SsCola, setPerson2SsCola] = useState(2.6);
   const [fersSurvivorRate, setFersSurvivorRate] = useState(50); // Survivor gets 50% of FERS
   
   const [tspBalance, setTspBalance] = useState(1000000);
@@ -135,15 +138,6 @@ const BearingApp = () => {
   const [taxBracket, setTaxBracket] = useState(22);
   const [federalWithheld, setFederalWithheld] = useState(683);
   
-  // Monte Carlo state
-  const [monteCarloResults, setMonteCarloResults] = useState(null);
-  const [monteCarloRunning, setMonteCarloRunning] = useState(false);
-  const [mcStdDevOverride, setMcStdDevOverride] = useState(null); // null = auto from risk profile
-  const [mcRiskProfile, setMcRiskProfile] = useState('moderate'); // conservative/moderate/aggressive
-  
-  // Starter Scenario state
-  const [showScenarioPicker, setShowScenarioPicker] = useState(true);
-  
   // Track expanded rows and cells
   const [expandedRows, setExpandedRows] = useState(new Set());
   
@@ -177,6 +171,8 @@ const BearingApp = () => {
   const calculateSSBreakeven = (fullBenefitAmount, startAge1, startAge2) => {
     // Calculate breakeven age between two SS start ages
     // Full benefit is at age 67 for most people
+    const fullAge = 67;
+    
     // Reduction factors (simplified)
     const getMonthlyBenefit = (startAge) => {
       if (startAge === 62) return fullBenefitAmount * 0.70; // 30% reduction
@@ -656,6 +652,11 @@ const BearingApp = () => {
     };
   };
 
+  const calculateAge = (dobString, year) => {
+    const [month, day, birthYear] = dobString.split('/').map(Number);
+    return year - birthYear;
+  };
+
   const calculateProjections = () => {
     // Parse DOB - handle both MM/DD/YYYY format and YYYY-MM-DD format
     let birthYear, birthMonth;
@@ -860,333 +861,6 @@ const BearingApp = () => {
     return projections;
   };
 
-  // ─── STARTER SCENARIOS ────────────────────────────────────────────────────
-  const starterScenarios = {
-    blank: {
-      label: '📋 Blank Canvas',
-      description: 'Start fresh with all zeros',
-      icon: '📋',
-      color: '#666',
-      data: {
-        dob: '', isMonthly: true, fersAmount: 0, srsAmount: 0, ssAmount: 0, ssStartAge: 67,
-        fersCola: 2.6, srsCola: 2.6, ssCola: 2.6, projectionYears: 30,
-        tspBalance: 0, tspGrowthRate: 6.5, tspWithdrawalType: 'amount',
-        tspWithdrawalAmount: 0, tspWithdrawalPercent: 4.0, tspWithdrawalCola: 2.6, tspCoverTaxes: false,
-        healthInsurance: 0, lifeInsurance: 0, dentalInsurance: 0,
-        budgetHousing: 0, budgetFood: 0, budgetTransportation: 0, budgetHealthcare: 0,
-        budgetEntertainment: 0, budgetOther: 0, inflationRate: 2.6, taxBracket: 22, federalWithheld: 0, expenses: []
-      }
-    },
-    // Federal Employee Scenarios
-    earlyCareerFed: {
-      label: '🌱 Early Career Fed',
-      description: 'Age 28 • Single • 5 yrs service • GS-9',
-      icon: '🌱',
-      color: '#5cb85c',
-      category: 'federal',
-      data: {
-        dob: `01/15/${new Date().getFullYear() - 28}`, isMonthly: true,
-        fersAmount: 1100, srsAmount: 420, ssAmount: 1400, ssStartAge: 67,
-        fersCola: 2.6, srsCola: 2.6, ssCola: 2.6, projectionYears: 40,
-        tspBalance: 45000, tspGrowthRate: 7.0, tspWithdrawalType: 'amount',
-        tspWithdrawalAmount: 1500, tspWithdrawalPercent: 4.0, tspWithdrawalCola: 2.6, tspCoverTaxes: false,
-        healthInsurance: 250, lifeInsurance: 30, dentalInsurance: 25,
-        budgetHousing: 1400, budgetFood: 400, budgetTransportation: 350, budgetHealthcare: 100,
-        budgetEntertainment: 300, budgetOther: 250, inflationRate: 2.6, taxBracket: 22, federalWithheld: 180, expenses: []
-      }
-    },
-    midCareerCouple: {
-      label: '👨‍👩‍👧‍👦 Mid-Career Couple',
-      description: 'Age 42 • Married • 18 yrs service • GS-13',
-      icon: '👨‍👩‍👧‍👦',
-      color: '#5bc0de',
-      category: 'federal',
-      data: {
-        dob: `06/10/${new Date().getFullYear() - 42}`, isMonthly: true,
-        fersAmount: 3800, srsAmount: 980, ssAmount: 2200, ssStartAge: 67,
-        fersCola: 2.6, srsCola: 2.6, ssCola: 2.6, projectionYears: 40,
-        tspBalance: 320000, tspGrowthRate: 6.5, tspWithdrawalType: 'amount',
-        tspWithdrawalAmount: 2500, tspWithdrawalPercent: 4.0, tspWithdrawalCola: 2.6, tspCoverTaxes: true,
-        healthInsurance: 480, lifeInsurance: 55, dentalInsurance: 45,
-        budgetHousing: 2200, budgetFood: 700, budgetTransportation: 600, budgetHealthcare: 200,
-        budgetEntertainment: 450, budgetOther: 400, inflationRate: 2.6, taxBracket: 22, federalWithheld: 420, expenses: []
-      }
-    },
-    preRetirementFed: {
-      label: '🏁 Pre-Retirement Fed',
-      description: 'Age 57 • Married • 30 yrs service • GS-15',
-      icon: '🏁',
-      color: '#FF9933',
-      category: 'federal',
-      data: {
-        dob: `04/29/${new Date().getFullYear() - 57}`, isMonthly: true,
-        fersAmount: 6500, srsAmount: 1360, ssAmount: 2795, ssStartAge: 67,
-        fersCola: 2.6, srsCola: 2.6, ssCola: 2.6, projectionYears: 35,
-        tspBalance: 1000000, tspGrowthRate: 6.5, tspWithdrawalType: 'amount',
-        tspWithdrawalAmount: 3000, tspWithdrawalPercent: 4.0, tspWithdrawalCola: 2.6, tspCoverTaxes: true,
-        healthInsurance: 550, lifeInsurance: 65, dentalInsurance: 53,
-        budgetHousing: 2000, budgetFood: 500, budgetTransportation: 500, budgetHealthcare: 250,
-        budgetEntertainment: 500, budgetOther: 491, inflationRate: 2.6, taxBracket: 22, federalWithheld: 683, expenses: []
-      }
-    },
-    justRetiredFed: {
-      label: '🎉 Just Retired Fed',
-      description: 'Age 62 • SRS→SS transition year • Peak complexity',
-      icon: '🎉',
-      color: '#CC99CC',
-      category: 'federal',
-      data: {
-        dob: `09/01/${new Date().getFullYear() - 62}`, isMonthly: true,
-        fersAmount: 5200, srsAmount: 1100, ssAmount: 2400, ssStartAge: 67,
-        fersCola: 2.6, srsCola: 2.6, ssCola: 2.6, projectionYears: 30,
-        tspBalance: 750000, tspGrowthRate: 5.5, tspWithdrawalType: 'amount',
-        tspWithdrawalAmount: 2800, tspWithdrawalPercent: 4.0, tspWithdrawalCola: 2.6, tspCoverTaxes: true,
-        healthInsurance: 520, lifeInsurance: 60, dentalInsurance: 50,
-        budgetHousing: 1800, budgetFood: 550, budgetTransportation: 450, budgetHealthcare: 350,
-        budgetEntertainment: 400, budgetOther: 350, inflationRate: 2.6, taxBracket: 22, federalWithheld: 580, expenses: []
-      }
-    },
-    // General Demographics
-    young25: {
-      label: '🚀 Average Age 25',
-      description: 'Single • Entry level • Just starting out',
-      icon: '🚀',
-      color: '#28a745',
-      category: 'general',
-      data: {
-        dob: `03/20/${new Date().getFullYear() - 25}`, isMonthly: true,
-        fersAmount: 800, srsAmount: 300, ssAmount: 1100, ssStartAge: 67,
-        fersCola: 2.6, srsCola: 2.6, ssCola: 2.6, projectionYears: 45,
-        tspBalance: 15000, tspGrowthRate: 7.5, tspWithdrawalType: 'percent',
-        tspWithdrawalAmount: 1000, tspWithdrawalPercent: 4.0, tspWithdrawalCola: 2.6, tspCoverTaxes: false,
-        healthInsurance: 180, lifeInsurance: 20, dentalInsurance: 18,
-        budgetHousing: 1200, budgetFood: 350, budgetTransportation: 300, budgetHealthcare: 80,
-        budgetEntertainment: 250, budgetOther: 200, inflationRate: 2.6, taxBracket: 12, federalWithheld: 100, expenses: []
-      }
-    },
-    married40: {
-      label: '🏠 Average Age 40',
-      description: 'Married • 2 kids • Mid-career homeowner',
-      icon: '🏠',
-      color: '#007bff',
-      category: 'general',
-      data: {
-        dob: `07/04/${new Date().getFullYear() - 40}`, isMonthly: true,
-        fersAmount: 3200, srsAmount: 850, ssAmount: 1900, ssStartAge: 67,
-        fersCola: 2.6, srsCola: 2.6, ssCola: 2.6, projectionYears: 40,
-        tspBalance: 180000, tspGrowthRate: 6.5, tspWithdrawalType: 'amount',
-        tspWithdrawalAmount: 2000, tspWithdrawalPercent: 4.0, tspWithdrawalCola: 2.6, tspCoverTaxes: true,
-        healthInsurance: 420, lifeInsurance: 50, dentalInsurance: 40,
-        budgetHousing: 2400, budgetFood: 800, budgetTransportation: 700, budgetHealthcare: 200,
-        budgetEntertainment: 400, budgetOther: 500, inflationRate: 2.6, taxBracket: 22, federalWithheld: 350, expenses: []
-      }
-    },
-    emptyNest55: {
-      label: '🌅 Average Age 55',
-      description: 'Married • Empty nest • Nearing retirement',
-      icon: '🌅',
-      color: '#fd7e14',
-      category: 'general',
-      data: {
-        dob: `11/11/${new Date().getFullYear() - 55}`, isMonthly: true,
-        fersAmount: 5000, srsAmount: 1200, ssAmount: 2600, ssStartAge: 67,
-        fersCola: 2.6, srsCola: 2.6, ssCola: 2.6, projectionYears: 35,
-        tspBalance: 650000, tspGrowthRate: 6.0, tspWithdrawalType: 'amount',
-        tspWithdrawalAmount: 2500, tspWithdrawalPercent: 4.0, tspWithdrawalCola: 2.6, tspCoverTaxes: true,
-        healthInsurance: 500, lifeInsurance: 60, dentalInsurance: 48,
-        budgetHousing: 1900, budgetFood: 600, budgetTransportation: 500, budgetHealthcare: 300,
-        budgetEntertainment: 450, budgetOther: 380, inflationRate: 2.6, taxBracket: 22, federalWithheld: 550, expenses: []
-      }
-    }
-  };
-
-  const loadScenario = (key) => {
-    const scenario = starterScenarios[key];
-    if (!scenario) return;
-    const d = scenario.data;
-    setDob(d.dob); setIsMonthly(d.isMonthly);
-    setFersAmount(d.fersAmount); setSrsAmount(d.srsAmount); setSsAmount(d.ssAmount);
-    setSsStartAge(d.ssStartAge); setFersCola(d.fersCola); setSrsCola(d.srsCola); setSsCola(d.ssCola);
-    setProjectionYears(d.projectionYears); setTspBalance(d.tspBalance); setTspGrowthRate(d.tspGrowthRate);
-    setTspWithdrawalType(d.tspWithdrawalType); setTspWithdrawalAmount(d.tspWithdrawalAmount);
-    setTspWithdrawalPercent(d.tspWithdrawalPercent); setTspWithdrawalCola(d.tspWithdrawalCola);
-    setTspCoverTaxes(d.tspCoverTaxes); setHealthInsurance(d.healthInsurance);
-    setLifeInsurance(d.lifeInsurance); setDentalInsurance(d.dentalInsurance);
-    setBudgetHousing(d.budgetHousing); setBudgetFood(d.budgetFood);
-    setBudgetTransportation(d.budgetTransportation); setBudgetHealthcare(d.budgetHealthcare);
-    setBudgetEntertainment(d.budgetEntertainment); setBudgetOther(d.budgetOther);
-    setInflationRate(d.inflationRate); setTaxBracket(d.taxBracket);
-    setFederalWithheld(d.federalWithheld); setExpenses(d.expenses);
-    setShowScenarioPicker(false);
-    setMonteCarloResults(null);
-    setHasCalculated(false);
-  };
-
-  // ─── MONTE CARLO ENGINE ───────────────────────────────────────────────────
-  // Historical annual std devs by risk profile (based on S&P/bond blend data)
-  const riskProfiles = {
-    conservative: { label: 'Conservative (Bond-heavy)', stdDev: 8.0, color: '#5bc0de' },
-    moderate:     { label: 'Moderate (60/40 blend)',    stdDev: 13.0, color: '#FF9933' },
-    aggressive:   { label: 'Aggressive (Stock-heavy)',  stdDev: 18.0, color: '#dc3545' }
-  };
-
-  // Box-Muller transform for normally distributed random numbers
-  const gaussianRandom = (mean, stdDev) => {
-    let u = 0, v = 0;
-    while (u === 0) u = Math.random();
-    while (v === 0) v = Math.random();
-    return mean + stdDev * Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
-  };
-
-  const runMonteCarlo = () => {
-    setMonteCarloRunning(true);
-    setTimeout(() => {
-      const NUM_SIMS = 5000;
-      const stdDev = mcStdDevOverride !== null ? mcStdDevOverride : riskProfiles[mcRiskProfile].stdDev;
-
-      // Parse DOB
-      let birthYear, birthMonth;
-      if (dob.includes('-')) {
-        const parts = dob.split('-');
-        birthYear = parseInt(parts[0]); birthMonth = parseInt(parts[1]);
-      } else {
-        const parts = dob.split('/');
-        birthMonth = parseInt(parts[0]); birthYear = parseInt(parts[2]);
-      }
-      const currentYear = new Date().getFullYear();
-      const startAge = currentYear - birthYear;
-
-      // Run each simulation
-      const allRuns = [];
-      let survivedCount = { toLifeExp: 0, toLifeExpPlus5: 0, toLifeExpPlus10: 0 };
-      const lifeExpAge = person1LifeExpectancy;
-
-      for (let sim = 0; sim < NUM_SIMS; sim++) {
-        let balance = tspBalance;
-        let withdrawal = tspWithdrawalAmount * (isMonthly ? 12 : 1);
-        const runBalances = [];
-        let ranOutAt = null;
-
-        for (let i = 0; i < projectionYears; i++) {
-          const age = startAge + i;
-          // Random return for this year using log-normal distribution
-          const annualReturn = gaussianRandom(tspGrowthRate / 100, stdDev / 100);
-          
-          if (balance > 0) {
-            let wd = 0;
-            if (tspWithdrawalType === 'amount') {
-              let base = withdrawal;
-              if (tspCoverTaxes) base = base / (1 - taxBracket / 100);
-              wd = Math.min(base, balance);
-            } else {
-              wd = Math.min(balance * (tspWithdrawalPercent / 100), balance);
-            }
-            balance = balance * (1 + annualReturn) - wd;
-            balance = Math.max(0, balance);
-            if (tspWithdrawalType === 'amount') withdrawal *= (1 + tspWithdrawalCola / 100);
-            if (balance === 0 && ranOutAt === null) ranOutAt = age;
-          }
-          runBalances.push(Math.round(balance));
-        }
-
-        allRuns.push({ balances: runBalances, ranOutAt });
-
-        // Count survivals
-        const balAtLifeExp = runBalances[Math.min(lifeExpAge - startAge, projectionYears - 1)] ?? 0;
-        const balAtLifeExpPlus5 = runBalances[Math.min(lifeExpAge - startAge + 5, projectionYears - 1)] ?? 0;
-        const balAtLifeExpPlus10 = runBalances[Math.min(lifeExpAge - startAge + 10, projectionYears - 1)] ?? 0;
-        if (balAtLifeExp > 0) survivedCount.toLifeExp++;
-        if (balAtLifeExpPlus5 > 0) survivedCount.toLifeExpPlus5++;
-        if (balAtLifeExpPlus10 > 0) survivedCount.toLifeExpPlus10++;
-      }
-
-      // Build percentile bands for each year
-      const chartData = [];
-      for (let i = 0; i < projectionYears; i++) {
-        const yearBalances = allRuns.map(r => r.balances[i]).sort((a, b) => a - b);
-        const pct = (p) => yearBalances[Math.floor(p / 100 * NUM_SIMS)] ?? 0;
-        chartData.push({
-          year: currentYear + i,
-          age: startAge + i,
-          pct10: pct(10),
-          pct25: pct(25),
-          pct50: pct(50),
-          pct75: pct(75),
-          pct90: pct(90),
-          median: pct(50),
-          // Recharts area bands need [low, high] style — store as range pairs
-          band_outer: [pct(10), pct(90)],
-          band_inner: [pct(25), pct(75)],
-        });
-      }
-
-      // Key age summary table
-      const keyAges = [
-        lifeExpAge - 5,
-        lifeExpAge,
-        lifeExpAge + 5,
-        lifeExpAge + 10
-      ].filter(a => a > startAge && a <= startAge + projectionYears - 1);
-
-      const keyAgeSummary = keyAges.map(age => {
-        const idx = age - startAge;
-        const yearBalances = allRuns.map(r => r.balances[idx] ?? 0).sort((a, b) => a - b);
-        const pct = (p) => yearBalances[Math.floor(p / 100 * NUM_SIMS)] ?? 0;
-        const surviveCount = yearBalances.filter(b => b > 0).length;
-        return {
-          age,
-          year: currentYear + idx,
-          pct10: pct(10), pct25: pct(25), pct50: pct(50), pct75: pct(75), pct90: pct(90),
-          survivalRate: Math.round(surviveCount / NUM_SIMS * 100)
-        };
-      });
-
-      // Overall probability score (to life expectancy)
-      const probabilityScore = Math.round(survivedCount.toLifeExp / NUM_SIMS * 100);
-      const probabilityPlus5 = Math.round(survivedCount.toLifeExpPlus5 / NUM_SIMS * 100);
-      const probabilityPlus10 = Math.round(survivedCount.toLifeExpPlus10 / NUM_SIMS * 100);
-
-      // Median depletion age
-      const ranOutAges = allRuns.map(r => r.ranOutAt).filter(a => a !== null);
-      const medianDepletionAge = ranOutAges.length > 0
-        ? ranOutAges.sort((a, b) => a - b)[Math.floor(ranOutAges.length / 2)]
-        : null;
-
-      setMonteCarloResults({
-        chartData,
-        keyAgeSummary,
-        probabilityScore,
-        probabilityPlus5,
-        probabilityPlus10,
-        medianDepletionAge,
-        numSims: NUM_SIMS,
-        stdDev,
-        riskProfile: mcRiskProfile,
-        lifeExpAge,
-        ranOutCount: ranOutAges.length
-      });
-
-      setMonteCarloRunning(false);
-      setViewMode('monte');
-    }, 50);
-  };
-
-  const getScoreColor = (score) => {
-    if (score >= 85) return '#28a745';
-    if (score >= 70) return '#FF9933';
-    return '#dc3545';
-  };
-
-  const getScoreLabel = (score) => {
-    if (score >= 90) return 'EXCELLENT';
-    if (score >= 80) return 'STRONG';
-    if (score >= 70) return 'MODERATE';
-    if (score >= 60) return 'CAUTION';
-    return 'AT RISK';
-  };
-
-  // ─── END MONTE CARLO ENGINE ───────────────────────────────────────────────
-
   const projections = hasCalculated ? calculateProjections() : [];
 
   const formatCurrency = (amount) => {
@@ -1236,7 +910,7 @@ const BearingApp = () => {
               FINANCIAL NAVIGATION SYSTEM
             </div>
             <div style={{ color: '#999', fontSize: '10px', marginTop: '4px', fontStyle: 'italic' }}>
-              v3.0.0 — Monte Carlo Edition
+              v2.0.0
             </div>
           </div>
         </div>
@@ -1338,7 +1012,7 @@ const BearingApp = () => {
               <div style={{ background: 'rgba(255, 255, 255, 0.03)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', padding: '20px', border: '1px solid #e0e0e0', borderTop: 'none' }}>
                 
                 {/* Person 1 */}
-                <div style={{ marginBottom: '20px', padding: '15px', background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '2px solid #FF9933', borderRadius: '4px' }}>
+                <div style={{ marginBottom: '20px', padding: '15px', background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)', border: '2px solid #FF9933', borderRadius: '4px' }}>
                   <h3 style={{ margin: '0 0 15px 0', color: '#FF9933', fontSize: '16px', fontWeight: '700' }}>
                     👤 Person 1
                   </h3>
@@ -1368,7 +1042,8 @@ const BearingApp = () => {
                         style={{
                           width: '100%',
                           padding: '6px',
-                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                          color: 'rgba(255, 255, 255, 0.9)',
                           border: '1px solid #ddd',
                           borderRadius: '4px',
                           fontSize: '13px',
@@ -1393,7 +1068,8 @@ const BearingApp = () => {
                         style={{
                           width: '100%',
                           padding: '6px',
-                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                          color: 'rgba(255, 255, 255, 0.9)',
                           border: '1px solid #ddd',
                           borderRadius: '4px',
                           fontSize: '13px',
@@ -1417,7 +1093,8 @@ const BearingApp = () => {
                       style={{
                         width: '100%', boxSizing: 'border-box',
                         padding: '6px',
-                        background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                        background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                        color: 'rgba(255, 255, 255, 0.9)',
                         border: '1px solid #ddd',
                         borderRadius: '4px',
                         fontSize: '13px'
@@ -1484,7 +1161,8 @@ const BearingApp = () => {
                       style={{
                         width: '100%',
                         padding: '6px 6px 6px 20px',
-                        background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                        background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                        color: 'rgba(255, 255, 255, 0.9)',
                         border: '1px solid #ddd',
                         borderRadius: '4px',
                         fontSize: '13px',
@@ -1505,7 +1183,8 @@ const BearingApp = () => {
                       style={{
                         width: '100%',
                         padding: '6px 6px 6px 20px',
-                        background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                        background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                        color: 'rgba(255, 255, 255, 0.9)',
                         border: '1px solid #ddd',
                         borderRadius: '4px',
                         fontSize: '13px',
@@ -1529,7 +1208,8 @@ const BearingApp = () => {
                       style={{
                         width: '100%',
                         padding: '6px 6px 6px 20px',
-                        background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                        background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                        color: 'rgba(255, 255, 255, 0.9)',
                         border: '1px solid #ddd',
                         borderRadius: '4px',
                         fontSize: '13px',
@@ -1550,7 +1230,8 @@ const BearingApp = () => {
                     style={{
                       width: '100%',
                       padding: '6px',
-                      background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                      background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                      color: 'rgba(255, 255, 255, 0.9)',
                       border: '1px solid #ddd',
                       borderRadius: '4px',
                       fontSize: '13px',
@@ -1569,7 +1250,7 @@ const BearingApp = () => {
                     const breakeven = calculateSSBreakeven(isMonthly ? ssAmount : ssAmount / 12, ssStartAge, 67);
                     if (breakeven) {
                       return (
-                        <div style={{ backgroundColor: 'rgba(0, 102, 204, 0.15)', padding: '8px', borderRadius: '4px', fontSize: '11px', color: '#88bbff', marginBottom: '12px' }}>
+                        <div style={{ backgroundColor: '#e8f4f8', padding: '8px', borderRadius: '4px', fontSize: '11px', color: '#0066cc', marginBottom: '12px' }}>
                           <div style={{ fontWeight: '600', marginBottom: '4px' }}>💡 Start at {ssStartAge} vs 67:</div>
                           <div>• Age {ssStartAge}: {formatCurrency(breakeven.monthly1)}/mo</div>
                           <div>• Age 67: {formatCurrency(breakeven.monthly2)}/mo</div>
@@ -1605,7 +1286,8 @@ const BearingApp = () => {
                         style={{
                           width: '100%',
                           padding: '6px 6px 6px 20px',
-                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                          color: 'rgba(255, 255, 255, 0.9)',
                           border: '1px solid #ddd',
                           borderRadius: '4px',
                           fontSize: '13px',
@@ -1626,7 +1308,8 @@ const BearingApp = () => {
                         style={{
                           width: '100%',
                           padding: '6px 6px 6px 20px',
-                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                          color: 'rgba(255, 255, 255, 0.9)',
                           border: '1px solid #ddd',
                           borderRadius: '4px',
                           fontSize: '13px',
@@ -1650,7 +1333,8 @@ const BearingApp = () => {
                         style={{
                           width: '100%',
                           padding: '6px 6px 6px 20px',
-                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                          color: 'rgba(255, 255, 255, 0.9)',
                           border: '1px solid #ddd',
                           borderRadius: '4px',
                           fontSize: '13px',
@@ -1677,10 +1361,10 @@ const BearingApp = () => {
                       fontSize: '14px'
                     }}
                   >
-                    âž• Add Person 2
+                    ➕ Add Person 2
                   </button>
                 ) : (
-                  <div style={{ marginBottom: '0', padding: '15px', background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '2px solid #CC99CC', borderRadius: '4px' }}>
+                  <div style={{ marginBottom: '0', padding: '15px', background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)', border: '2px solid #CC99CC', borderRadius: '4px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                       <h3 style={{ margin: '0', color: '#CC99CC', fontSize: '16px', fontWeight: '700' }}>
                         👤 Person 2
@@ -1728,7 +1412,8 @@ const BearingApp = () => {
                           style={{
                             width: '100%',
                             padding: '6px',
-                            background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                            background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                            color: 'rgba(255, 255, 255, 0.9)',
                             border: '1px solid #ddd',
                             borderRadius: '4px',
                             fontSize: '13px',
@@ -1753,7 +1438,8 @@ const BearingApp = () => {
                           style={{
                             width: '100%',
                             padding: '6px',
-                            background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                            background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                            color: 'rgba(255, 255, 255, 0.9)',
                             border: '1px solid #ddd',
                             borderRadius: '4px',
                             fontSize: '13px',
@@ -1777,7 +1463,8 @@ const BearingApp = () => {
                         style={{
                           width: '100%', boxSizing: 'border-box',
                           padding: '6px',
-                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                          color: 'rgba(255, 255, 255, 0.9)',
                           border: '1px solid #ddd',
                           borderRadius: '4px',
                           fontSize: '13px'
@@ -1806,7 +1493,8 @@ const BearingApp = () => {
                         style={{
                           width: '100%',
                           padding: '6px 6px 6px 20px',
-                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                          color: 'rgba(255, 255, 255, 0.9)',
                           border: '1px solid #ddd',
                           borderRadius: '4px',
                           fontSize: '13px',
@@ -1827,7 +1515,8 @@ const BearingApp = () => {
                         style={{
                           width: '100%',
                           padding: '6px 6px 6px 20px',
-                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                          color: 'rgba(255, 255, 255, 0.9)',
                           border: '1px solid #ddd',
                           borderRadius: '4px',
                           fontSize: '13px',
@@ -1851,7 +1540,8 @@ const BearingApp = () => {
                         style={{
                           width: '100%',
                           padding: '6px 6px 6px 20px',
-                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                          color: 'rgba(255, 255, 255, 0.9)',
                           border: '1px solid #ddd',
                           borderRadius: '4px',
                           fontSize: '13px',
@@ -1872,7 +1562,8 @@ const BearingApp = () => {
                       style={{
                         width: '100%',
                         padding: '6px',
-                        background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                        background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                        color: 'rgba(255, 255, 255, 0.9)',
                         border: '1px solid #ddd',
                         borderRadius: '4px',
                         fontSize: '13px',
@@ -1891,7 +1582,7 @@ const BearingApp = () => {
                       const breakeven = calculateSSBreakeven(isMonthly ? person2SsAmount : person2SsAmount / 12, person2SsStartAge, 67);
                       if (breakeven) {
                         return (
-                          <div style={{ backgroundColor: 'rgba(0, 102, 204, 0.15)', padding: '8px', borderRadius: '4px', fontSize: '11px', color: '#88bbff' }}>
+                          <div style={{ backgroundColor: '#e8f4f8', padding: '8px', borderRadius: '4px', fontSize: '11px', color: '#0066cc' }}>
                             <div style={{ fontWeight: '600', marginBottom: '4px' }}>💡 Start at {person2SsStartAge} vs 67:</div>
                             <div>• Age {person2SsStartAge}: {formatCurrency(breakeven.monthly1)}/mo</div>
                             <div>• Age 67: {formatCurrency(breakeven.monthly2)}/mo</div>
@@ -1914,8 +1605,8 @@ const BearingApp = () => {
                 
                 {/* FERS Survivor Benefit Rate */}
                 {person2Enabled && (
-                  <div style={{ marginTop: '15px', padding: '12px', backgroundColor: 'rgba(255, 193, 7, 0.15)', border: '1px solid rgba(255, 193, 7, 0.5)', borderRadius: '4px' }}>
-                    <label style={{ display: 'block', marginBottom: '6px', color: '#ffc107', fontSize: '12px', fontWeight: '600' }}>
+                  <div style={{ marginTop: '15px', padding: '12px', backgroundColor: '#fff3cd', border: '1px solid #ffc107', borderRadius: '4px' }}>
+                    <label style={{ display: 'block', marginBottom: '6px', color: '#856404', fontSize: '12px', fontWeight: '600' }}>
                       FERS Survivor Benefit (% of pension)
                     </label>
                     <input
@@ -1925,13 +1616,14 @@ const BearingApp = () => {
                       style={{
                         width: '100%', boxSizing: 'border-box',
                         padding: '6px',
-                        background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                        background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                        color: 'rgba(255, 255, 255, 0.9)',
                         border: '1px solid #ddd',
                         borderRadius: '4px',
                         fontSize: '13px'
                       }}
                     />
-                    <div style={{ fontSize: '10px', color: 'rgba(255, 193, 7, 0.8)', marginTop: '4px', fontStyle: 'italic' }}>
+                    <div style={{ fontSize: '10px', color: '#856404', marginTop: '4px', fontStyle: 'italic' }}>
                       Typically 50-55%. Surviving spouse receives this % of the deceased's FERS pension.
                     </div>
                   </div>
@@ -1978,7 +1670,8 @@ const BearingApp = () => {
                     style={{
                       width: '100%', boxSizing: 'border-box',
                       padding: '10px 10px 10px 24px',
-                      background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                      background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                      color: 'rgba(255, 255, 255, 0.9)',
                       border: '1px solid #ddd',
                       borderRadius: '4px',
                       fontSize: '14px'
@@ -1997,7 +1690,8 @@ const BearingApp = () => {
                   style={{
                     width: '100%', boxSizing: 'border-box',
                     padding: '10px',
-                    background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                    background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: 'rgba(255, 255, 255, 0.9)',
                     border: '1px solid #ddd',
                     borderRadius: '4px',
                     fontSize: '14px',
@@ -2057,7 +1751,8 @@ const BearingApp = () => {
                         style={{
                           width: '100%', boxSizing: 'border-box',
                           padding: '10px 10px 10px 24px',
-                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                          color: 'rgba(255, 255, 255, 0.9)',
                           border: '1px solid #ddd',
                           borderRadius: '4px',
                           fontSize: '14px'
@@ -2113,7 +1808,8 @@ const BearingApp = () => {
                 
                 {additionalIncome.map(income => (
                   <div key={income.id} style={{ 
-                    background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', padding: '12px', 
+                    background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)', 
+                    padding: '12px', 
                     marginBottom: '12px', 
                     borderRadius: '4px',
                     border: '1px solid #ddd',
@@ -2128,7 +1824,8 @@ const BearingApp = () => {
                         width: '100%',
                         maxWidth: '100%',
                         padding: '6px 8px',
-                        background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                        background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                        color: 'rgba(255, 255, 255, 0.9)',
                         border: '1px solid #ddd',
                         borderRadius: '4px',
                         marginBottom: '8px',
@@ -2151,7 +1848,8 @@ const BearingApp = () => {
                             style={{
                               width: '100%',
                               padding: '6px 6px 6px 18px',
-                              background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                              background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                              color: 'rgba(255, 255, 255, 0.9)',
                               border: '1px solid #ddd',
                               borderRadius: '4px',
                               fontSize: '13px',
@@ -2171,7 +1869,8 @@ const BearingApp = () => {
                           style={{
                             width: '100%',
                             padding: '6px 4px',
-                            background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                            background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                            color: 'rgba(255, 255, 255, 0.9)',
                             border: '1px solid #ddd',
                             borderRadius: '4px',
                             fontSize: '13px',
@@ -2209,7 +1908,8 @@ const BearingApp = () => {
                           style={{
                             width: '100%',
                             padding: '6px',
-                            background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                            background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                            color: 'rgba(255, 255, 255, 0.9)',
                             border: '1px solid #ddd',
                             borderRadius: '4px',
                             fontSize: '13px',
@@ -2230,7 +1930,8 @@ const BearingApp = () => {
                           style={{
                             width: '100%',
                             padding: '6px',
-                            background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                            background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                            color: 'rgba(255, 255, 255, 0.9)',
                             border: '1px solid #ddd',
                             borderRadius: '4px',
                             fontSize: '13px',
@@ -2310,7 +2011,7 @@ const BearingApp = () => {
                     border: '1px solid #ddd',
                     padding: '12px',
                     marginBottom: '12px',
-                    background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+                    background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
                     borderRadius: '4px'
                   }}>
                     <input
@@ -2321,7 +2022,8 @@ const BearingApp = () => {
                       style={{
                         width: '100%', boxSizing: 'border-box',
                         padding: '8px',
-                        background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                        background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                        color: 'rgba(255, 255, 255, 0.9)',
                         border: '1px solid #ddd',
                         borderRadius: '4px',
                         marginBottom: '10px',
@@ -2338,7 +2040,8 @@ const BearingApp = () => {
                         style={{
                           flex: 1,
                           padding: '8px',
-                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                          color: 'rgba(255, 255, 255, 0.9)',
                           border: '1px solid #ddd',
                           borderRadius: '4px',
                           fontSize: '14px'
@@ -2352,7 +2055,8 @@ const BearingApp = () => {
                         style={{
                           flex: 1,
                           padding: '8px',
-                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                          color: 'rgba(255, 255, 255, 0.9)',
                           border: '1px solid #ddd',
                           borderRadius: '4px',
                           fontSize: '14px'
@@ -2376,7 +2080,8 @@ const BearingApp = () => {
                         style={{
                           width: '60px',
                           padding: '4px 8px',
-                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                          color: 'rgba(255, 255, 255, 0.9)',
                           border: '1px solid #ddd',
                           borderRadius: '4px',
                           marginLeft: '8px',
@@ -2484,7 +2189,8 @@ const BearingApp = () => {
                         style={{
                           width: '100%', boxSizing: 'border-box',
                           padding: '10px 10px 10px 24px',
-                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                          color: 'rgba(255, 255, 255, 0.9)',
                           border: '1px solid #ddd',
                           borderRadius: '4px',
                           fontSize: '14px'
@@ -2492,7 +2198,7 @@ const BearingApp = () => {
                       />
                     </div>
                   ) : (
-                    <div style={{ background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }}>
+                    <div style={{ background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }}>
                       {budgetHousingDetails.map(item => (
                         <div key={item.id} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
                           <input
@@ -2599,7 +2305,8 @@ const BearingApp = () => {
                         style={{
                           width: '100%', boxSizing: 'border-box',
                           padding: '10px 10px 10px 24px',
-                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                          color: 'rgba(255, 255, 255, 0.9)',
                           border: '1px solid #ddd',
                           borderRadius: '4px',
                           fontSize: '14px'
@@ -2607,7 +2314,7 @@ const BearingApp = () => {
                       />
                     </div>
                   ) : (
-                    <div style={{ background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }}>
+                    <div style={{ background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }}>
                       {budgetFoodDetails.map(item => (
                         <div key={item.id} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
                           <input
@@ -2695,10 +2402,10 @@ const BearingApp = () => {
                   {budgetMode.transportation === 'simple' ? (
                     <div style={{ position: 'relative' }}>
                       <span style={{ position: 'absolute', left: '12px', top: '11px', color: '#999', fontSize: '14px' }}>$</span>
-                      <input type="number" value={budgetTransportation} onChange={(e) => setBudgetTransportation(Number(e.target.value))} style={{ width: '100%', boxSizing: 'border-box', padding: '10px 10px 10px 24px', background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)', borderRadius: '4px', fontSize: '14px' }} />
+                      <input type="number" value={budgetTransportation} onChange={(e) => setBudgetTransportation(Number(e.target.value))} style={{ width: '100%', boxSizing: 'border-box', padding: '10px 10px 10px 24px', background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)', color: 'rgba(255, 255, 255, 0.9)', borderRadius: '4px', fontSize: '14px' }} />
                     </div>
                   ) : (
-                    <div style={{ background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }}>
+                    <div style={{ background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }}>
                       {budgetTransportationDetails.map(item => (
                         <div key={item.id} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
                           <input type="text" value={item.name} onChange={(e) => updateBudgetSubcategory(item.id, 'name', e.target.value, budgetTransportationDetails, setBudgetTransportationDetails)} placeholder="Subcategory" style={{ flex: 1, padding: '6px 8px', fontSize: '12px', border: '1px solid #ddd', borderRadius: '3px' }} />
@@ -2724,10 +2431,10 @@ const BearingApp = () => {
                   {budgetMode.healthcare === 'simple' ? (
                     <div style={{ position: 'relative' }}>
                       <span style={{ position: 'absolute', left: '12px', top: '11px', color: '#999', fontSize: '14px' }}>$</span>
-                      <input type="number" value={budgetHealthcare} onChange={(e) => setBudgetHealthcare(Number(e.target.value))} style={{ width: '100%', boxSizing: 'border-box', padding: '10px 10px 10px 24px', background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)', borderRadius: '4px', fontSize: '14px' }} />
+                      <input type="number" value={budgetHealthcare} onChange={(e) => setBudgetHealthcare(Number(e.target.value))} style={{ width: '100%', boxSizing: 'border-box', padding: '10px 10px 10px 24px', background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)', color: 'rgba(255, 255, 255, 0.9)', borderRadius: '4px', fontSize: '14px' }} />
                     </div>
                   ) : (
-                    <div style={{ background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }}>
+                    <div style={{ background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }}>
                       {budgetHealthcareDetails.map(item => (
                         <div key={item.id} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
                           <input type="text" value={item.name} onChange={(e) => updateBudgetSubcategory(item.id, 'name', e.target.value, budgetHealthcareDetails, setBudgetHealthcareDetails)} placeholder="Subcategory" style={{ flex: 1, padding: '6px 8px', fontSize: '12px', border: '1px solid #ddd', borderRadius: '3px' }} />
@@ -2753,10 +2460,10 @@ const BearingApp = () => {
                   {budgetMode.entertainment === 'simple' ? (
                     <div style={{ position: 'relative' }}>
                       <span style={{ position: 'absolute', left: '12px', top: '11px', color: '#999', fontSize: '14px' }}>$</span>
-                      <input type="number" value={budgetEntertainment} onChange={(e) => setBudgetEntertainment(Number(e.target.value))} style={{ width: '100%', boxSizing: 'border-box', padding: '10px 10px 10px 24px', background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)', borderRadius: '4px', fontSize: '14px' }} />
+                      <input type="number" value={budgetEntertainment} onChange={(e) => setBudgetEntertainment(Number(e.target.value))} style={{ width: '100%', boxSizing: 'border-box', padding: '10px 10px 10px 24px', background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)', color: 'rgba(255, 255, 255, 0.9)', borderRadius: '4px', fontSize: '14px' }} />
                     </div>
                   ) : (
-                    <div style={{ background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }}>
+                    <div style={{ background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }}>
                       {budgetEntertainmentDetails.map(item => (
                         <div key={item.id} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
                           <input type="text" value={item.name} onChange={(e) => updateBudgetSubcategory(item.id, 'name', e.target.value, budgetEntertainmentDetails, setBudgetEntertainmentDetails)} placeholder="Subcategory" style={{ flex: 1, padding: '6px 8px', fontSize: '12px', border: '1px solid #ddd', borderRadius: '3px' }} />
@@ -2782,10 +2489,10 @@ const BearingApp = () => {
                   {budgetMode.other === 'simple' ? (
                     <div style={{ position: 'relative' }}>
                       <span style={{ position: 'absolute', left: '12px', top: '11px', color: '#999', fontSize: '14px' }}>$</span>
-                      <input type="number" value={budgetOther} onChange={(e) => setBudgetOther(Number(e.target.value))} style={{ width: '100%', boxSizing: 'border-box', padding: '10px 10px 10px 24px', background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)', borderRadius: '4px', fontSize: '14px' }} />
+                      <input type="number" value={budgetOther} onChange={(e) => setBudgetOther(Number(e.target.value))} style={{ width: '100%', boxSizing: 'border-box', padding: '10px 10px 10px 24px', background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)', color: 'rgba(255, 255, 255, 0.9)', borderRadius: '4px', fontSize: '14px' }} />
                     </div>
                   ) : (
-                    <div style={{ background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }}>
+                    <div style={{ background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }}>
                       {budgetOtherDetails.map(item => (
                         <div key={item.id} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
                           <input type="text" value={item.name} onChange={(e) => updateBudgetSubcategory(item.id, 'name', e.target.value, budgetOtherDetails, setBudgetOtherDetails)} placeholder="Subcategory" style={{ flex: 1, padding: '6px 8px', fontSize: '12px', border: '1px solid #ddd', borderRadius: '3px' }} />
@@ -2802,7 +2509,8 @@ const BearingApp = () => {
 
                 {/* Grand Total */}
                 <div style={{ 
-                  background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', padding: '12px', 
+                  background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)', 
+                  padding: '12px', 
                   borderRadius: '4px', 
                   border: '1px solid #ddd',
                   marginTop: '15px'
@@ -2876,7 +2584,8 @@ const BearingApp = () => {
                     style={{
                       width: '100%', boxSizing: 'border-box',
                       padding: '10px 10px 10px 24px',
-                      background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                      background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                      color: 'rgba(255, 255, 255, 0.9)',
                       border: '1px solid #ddd',
                       borderRadius: '4px',
                       fontSize: '14px'
@@ -2893,7 +2602,8 @@ const BearingApp = () => {
                   style={{
                     width: '100%', boxSizing: 'border-box',
                     padding: '10px',
-                    background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                    background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: 'rgba(255, 255, 255, 0.9)',
                     border: '1px solid #ddd',
                     borderRadius: '4px',
                     fontSize: '14px'
@@ -2950,7 +2660,8 @@ const BearingApp = () => {
                   style={{
                     width: '100%', boxSizing: 'border-box',
                     padding: '10px',
-                    background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                    background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: 'rgba(255, 255, 255, 0.9)',
                     border: '1px solid #ddd',
                     borderRadius: '4px',
                     fontSize: '14px',
@@ -2969,7 +2680,8 @@ const BearingApp = () => {
                   style={{
                     width: '100%', boxSizing: 'border-box',
                     padding: '10px',
-                    background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                    background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: 'rgba(255, 255, 255, 0.9)',
                     border: '1px solid #ddd',
                     borderRadius: '4px',
                     fontSize: '14px',
@@ -2988,7 +2700,8 @@ const BearingApp = () => {
                   style={{
                     width: '100%', boxSizing: 'border-box',
                     padding: '10px',
-                    background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                    background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: 'rgba(255, 255, 255, 0.9)',
                     border: '1px solid #ddd',
                     borderRadius: '4px',
                     fontSize: '14px',
@@ -3007,7 +2720,8 @@ const BearingApp = () => {
                   style={{
                     width: '100%', boxSizing: 'border-box',
                     padding: '10px',
-                    background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                    background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: 'rgba(255, 255, 255, 0.9)',
                     border: '1px solid #ddd',
                     borderRadius: '4px',
                     fontSize: '14px',
@@ -3026,7 +2740,8 @@ const BearingApp = () => {
                   style={{
                     width: '100%', boxSizing: 'border-box',
                     padding: '10px',
-                    background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                    background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: 'rgba(255, 255, 255, 0.9)',
                     border: '1px solid #ddd',
                     borderRadius: '4px',
                     fontSize: '14px',
@@ -3044,7 +2759,8 @@ const BearingApp = () => {
                   style={{
                     width: '100%', boxSizing: 'border-box',
                     padding: '10px',
-                    background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                    background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: 'rgba(255, 255, 255, 0.9)',
                     border: '1px solid #ddd',
                     borderRadius: '4px',
                     fontSize: '14px'
@@ -3200,139 +2916,13 @@ const BearingApp = () => {
             )}
           </div>
 
-          {/* Scenario Picker Modal */}
-          {showScenarioPicker && ReactDOM.createPortal(
-            <div style={{
-              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-              background: 'rgba(0,0,0,0.75)', zIndex: 1000,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              backdropFilter: 'blur(4px)'
-            }}>
-              <div style={{
-                background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
-                border: '1px solid rgba(255,153,51,0.4)',
-                borderRadius: '12px', padding: '30px',
-                maxWidth: '680px', width: '90%', maxHeight: '85vh', overflowY: 'auto',
-                boxShadow: '0 24px 80px rgba(0,0,0,0.6)'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                  <div>
-                    <h2 style={{ margin: 0, color: '#FF9933', fontSize: '22px', fontWeight: '700' }}>🧭 Choose a Starting Point</h2>
-                    <p style={{ margin: '6px 0 0 0', color: 'rgba(255,255,255,0.6)', fontSize: '13px' }}>
-                      Load a pre-built scenario or start from scratch. You can customize everything after loading.
-                    </p>
-                  </div>
-                  <button onClick={() => setShowScenarioPicker(false)} style={{
-                    background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)',
-                    color: '#fff', borderRadius: '8px', padding: '8px 14px', cursor: 'pointer', fontSize: '16px'
-                  }}>✕</button>
-                </div>
-
-                {/* Blank Canvas */}
-                <div style={{ marginBottom: '20px' }}>
-                  <button onClick={() => loadScenario('blank')} style={{
-                    width: '100%', padding: '16px', background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px',
-                    cursor: 'pointer', textAlign: 'left', color: '#fff'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <span style={{ fontSize: '28px' }}>📋</span>
-                      <div>
-                        <div style={{ fontWeight: '700', fontSize: '15px', color: '#fff' }}>Blank Canvas</div>
-                        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginTop: '2px' }}>Start fresh — all zeros, ready for your real numbers</div>
-                      </div>
-                    </div>
-                  </button>
-                </div>
-
-                {/* Federal Employee Scenarios */}
-                <div style={{ marginBottom: '20px' }}>
-                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#FF9933', letterSpacing: '2px', marginBottom: '10px', textTransform: 'uppercase' }}>
-                    🏛️ Federal Employee Career Stages
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    {['earlyCareerFed', 'midCareerCouple', 'preRetirementFed', 'justRetiredFed'].map(key => {
-                      const s = starterScenarios[key];
-                      return (
-                        <button key={key} onClick={() => loadScenario(key)} style={{
-                          padding: '14px', background: 'rgba(255,255,255,0.05)',
-                          border: `1px solid ${s.color}44`, borderRadius: '8px',
-                          cursor: 'pointer', textAlign: 'left', color: '#fff',
-                          transition: 'all 0.2s'
-                        }}
-                        onMouseOver={e => e.currentTarget.style.background = `${s.color}22`}
-                        onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                        >
-                          <div style={{ fontSize: '22px', marginBottom: '6px' }}>{s.icon}</div>
-                          <div style={{ fontWeight: '700', fontSize: '13px', color: s.color }}>{s.label.replace(/^.*? /, '')}</div>
-                          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '3px', lineHeight: '1.4' }}>{s.description}</div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* General Demographics */}
-                <div>
-                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#CC99CC', letterSpacing: '2px', marginBottom: '10px', textTransform: 'uppercase' }}>
-                    👥 General Demographics (US Averages)
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
-                    {['young25', 'married40', 'emptyNest55'].map(key => {
-                      const s = starterScenarios[key];
-                      return (
-                        <button key={key} onClick={() => loadScenario(key)} style={{
-                          padding: '14px', background: 'rgba(255,255,255,0.05)',
-                          border: `1px solid ${s.color}44`, borderRadius: '8px',
-                          cursor: 'pointer', textAlign: 'left', color: '#fff'
-                        }}
-                        onMouseOver={e => e.currentTarget.style.background = `${s.color}22`}
-                        onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                        >
-                          <div style={{ fontSize: '22px', marginBottom: '6px' }}>{s.icon}</div>
-                          <div style={{ fontWeight: '700', fontSize: '13px', color: s.color }}>{s.label.replace(/^.*? /, '')}</div>
-                          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '3px', lineHeight: '1.4' }}>{s.description}</div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div style={{ marginTop: '20px', padding: '12px', background: 'rgba(255,153,51,0.1)', borderRadius: '6px', fontSize: '11px', color: 'rgba(255,255,255,0.5)', fontStyle: 'italic' }}>
-                  💡 All scenarios use approximate US average data for illustration purposes. Customize all values after loading.
-                </div>
-              </div>
-            </div>,
-            document.body
-          )}
-
-          {/* Scenario Starter Button */}
-          <button
-            onClick={() => setShowScenarioPicker(true)}
-            style={{
-              width: '100%', boxSizing: 'border-box',
-              padding: '13px',
-              background: 'linear-gradient(135deg, rgba(92,184,220,0.8) 0%, rgba(92,184,220,0.6) 100%)',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontWeight: '600',
-              fontSize: '14px',
-              marginBottom: '10px',
-              letterSpacing: '0.3px'
-            }}
-          >
-            🧭 Load Starter Scenario
-          </button>
-
           {/* Calculate Button */}
           <button
             onClick={handleCalculate}
             style={{
               width: '100%', boxSizing: 'border-box',
               padding: '16px',
-              background: 'linear-gradient(135deg, rgba(255, 153, 51, 0.8) 0%, rgba(255, 153, 51, 0.6) 100%)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+              background: 'linear-gradient(135deg, rgba(255, 153, 51, 0.8) 0%, rgba(255, 153, 51, 0.6) 100%)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 153, 51, 0.4)',
               color: '#ffffff',
               border: 'none',
               borderRadius: '4px',
@@ -3383,7 +2973,7 @@ const BearingApp = () => {
               }}
               title="Import data from a file"
             >
-              🔁 Import
+              📁 Import
               <input
                 type="file"
                 accept=".json"
@@ -3417,7 +3007,7 @@ const BearingApp = () => {
             textAlign: 'center',
             fontStyle: 'italic',
             padding: '10px',
-            backgroundColor: 'rgba(255,255,255,0.06)',
+            backgroundColor: '#f9f9f9',
             borderRadius: '4px',
             marginBottom: '15px'
           }}>
@@ -3430,7 +3020,7 @@ const BearingApp = () => {
             style={{
               width: '100%', boxSizing: 'border-box',
               padding: '12px',
-              background: 'linear-gradient(135deg, rgba(255, 153, 51, 0.8) 0%, rgba(255, 153, 51, 0.6) 100%)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+              background: 'linear-gradient(135deg, rgba(255, 153, 51, 0.8) 0%, rgba(255, 153, 51, 0.6) 100%)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 153, 51, 0.4)',
               color: '#ffffff',
               border: 'none',
               borderRadius: '4px',
@@ -3546,241 +3136,9 @@ const BearingApp = () => {
                     >
                       CHART VIEW
                     </button>
-                    <button
-                      onClick={() => setViewMode('monte')}
-                      style={{
-                        padding: '12px 24px',
-                        backgroundColor: viewMode === 'monte' ? '#CC99CC' : '#ffffff',
-                        color: viewMode === 'monte' ? '#ffffff' : '#666',
-                        border: '2px solid #CC99CC',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontWeight: '600',
-                        fontSize: '14px'
-                      }}
-                    >
-                      🎲 MONTE CARLO
-                    </button>
                   </div>
 
-              {viewMode === 'monte' ? (
-                /* ─── MONTE CARLO VIEW ─── */
-                <div>
-                  {/* Settings Bar */}
-                  <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(204,153,204,0.3)', borderRadius: '8px', padding: '20px', marginBottom: '20px' }}>
-                    <h3 style={{ margin: '0 0 16px 0', color: '#CC99CC', fontSize: '16px', fontWeight: '700' }}>🎲 Monte Carlo Simulation Settings</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', alignItems: 'end' }}>
-                      <div>
-                        <label style={{ display: 'block', color: 'rgba(255,255,255,0.7)', fontSize: '12px', marginBottom: '6px', fontWeight: '600' }}>Portfolio Risk Profile</label>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          {Object.entries(riskProfiles).map(([key, profile]) => (
-                            <label key={key} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: mcRiskProfile === key ? profile.color : 'rgba(255,255,255,0.6)', fontSize: '12px' }}>
-                              <input type="radio" name="riskProfile" value={key} checked={mcRiskProfile === key}
-                                onChange={() => { setMcRiskProfile(key); setMcStdDevOverride(null); }}
-                                style={{ accentColor: profile.color }} />
-                              <span>{profile.label}</span>
-                              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>σ={profile.stdDev}%</span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', color: 'rgba(255,255,255,0.7)', fontSize: '12px', marginBottom: '6px', fontWeight: '600' }}>Custom Std Dev (optional)</label>
-                        <input type="number" step="0.5" min="1" max="40"
-                          value={mcStdDevOverride ?? ''}
-                          onChange={(e) => setMcStdDevOverride(e.target.value ? Number(e.target.value) : null)}
-                          placeholder={`Auto: ${riskProfiles[mcRiskProfile].stdDev}%`}
-                          style={{ width: '100%', boxSizing: 'border-box', padding: '8px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', color: '#fff', fontSize: '13px' }} />
-                        <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginTop: '4px' }}>Override the automatic σ for this simulation</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', marginBottom: '8px', fontWeight: '600' }}>Simulation: 5,000 runs</div>
-                        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginBottom: '12px' }}>Using log-normal return distribution<br/>Mean: {tspGrowthRate}% | σ: {mcStdDevOverride ?? riskProfiles[mcRiskProfile].stdDev}%</div>
-                        <button onClick={runMonteCarlo} disabled={monteCarloRunning}
-                          style={{ width: '100%', padding: '12px', background: monteCarloRunning ? 'rgba(204,153,204,0.3)' : 'linear-gradient(135deg, rgba(204,153,204,0.8), rgba(204,153,204,0.5))', color: '#fff', border: 'none', borderRadius: '6px', cursor: monteCarloRunning ? 'wait' : 'pointer', fontWeight: '700', fontSize: '14px' }}>
-                          {monteCarloRunning ? '⏳ Running 5,000 sims...' : '▶ Run Simulation'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {!monteCarloResults && !monteCarloRunning && (
-                    <div style={{ textAlign: 'center', padding: '60px', color: 'rgba(255,255,255,0.4)' }}>
-                      <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎲</div>
-                      <div style={{ fontSize: '18px', marginBottom: '8px', color: 'rgba(255,255,255,0.6)' }}>Ready to run Monte Carlo</div>
-                      <div style={{ fontSize: '13px' }}>Click "Run Simulation" above to model 5,000 market scenarios.<br/>Make sure you've clicked Calculate first to set your base inputs.</div>
-                    </div>
-                  )}
-
-                  {monteCarloResults && (() => {
-                    const mc = monteCarloResults;
-                    const scoreColor = getScoreColor(mc.probabilityScore);
-                    const scoreLabel = getScoreLabel(mc.probabilityScore);
-                    
-                    return (
-                      <div>
-                        {/* Hero Score Card */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-                          {/* Main Probability Gauge */}
-                          <div style={{ gridColumn: '1 / 2', background: `linear-gradient(135deg, ${scoreColor}22, ${scoreColor}11)`, border: `2px solid ${scoreColor}`, borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
-                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', letterSpacing: '1px', marginBottom: '8px', textTransform: 'uppercase' }}>Confidence Score</div>
-                            <div style={{ fontSize: '56px', fontWeight: '900', color: scoreColor, lineHeight: 1, marginBottom: '4px' }}>{mc.probabilityScore}%</div>
-                            <div style={{ fontSize: '13px', fontWeight: '700', color: scoreColor, marginBottom: '8px' }}>{scoreLabel}</div>
-                            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', lineHeight: '1.5' }}>
-                              Probability TSP lasts<br/>to age {mc.lifeExpAge}
-                            </div>
-                            {/* Mini gauge bar */}
-                            <div style={{ marginTop: '12px', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
-                              <div style={{ height: '100%', width: `${mc.probabilityScore}%`, background: scoreColor, borderRadius: '4px', transition: 'width 1s ease' }} />
-                            </div>
-                          </div>
-
-                          {/* Supporting stats */}
-                          <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
-                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>To Age {mc.lifeExpAge + 5}</div>
-                            <div style={{ fontSize: '36px', fontWeight: '800', color: getScoreColor(mc.probabilityPlus5) }}>{mc.probabilityPlus5}%</div>
-                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '6px' }}>Life exp. +5 years</div>
-                          </div>
-
-                          <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
-                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>To Age {mc.lifeExpAge + 10}</div>
-                            <div style={{ fontSize: '36px', fontWeight: '800', color: getScoreColor(mc.probabilityPlus10) }}>{mc.probabilityPlus10}%</div>
-                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '6px' }}>Life exp. +10 years</div>
-                          </div>
-
-                          <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
-                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>Scenarios Depleted</div>
-                            <div style={{ fontSize: '36px', fontWeight: '800', color: mc.ranOutCount / mc.numSims > 0.3 ? '#dc3545' : '#FF9933' }}>
-                              {Math.round(mc.ranOutCount / mc.numSims * 100)}%
-                            </div>
-                            {mc.medianDepletionAge && (
-                              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '6px' }}>Median depletion: age {mc.medianDepletionAge}</div>
-                            )}
-                            {!mc.medianDepletionAge && (
-                              <div style={{ fontSize: '11px', color: '#28a745', marginTop: '6px' }}>No depletion in median scenario</div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Score interpretation bar */}
-                        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '12px 16px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                          <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>Score guide:</span>
-                          {[['≥90%', '#28a745', 'Excellent'], ['80–89%', '#5cb85c', 'Strong'], ['70–79%', '#FF9933', 'Moderate'], ['60–69%', '#fd7e14', 'Caution'], ['<60%', '#dc3545', 'At Risk']].map(([range, color, label]) => (
-                            <div key={range} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                              <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: color }} />
-                              <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>{range} {label}</span>
-                            </div>
-                          ))}
-                          <span style={{ marginLeft: 'auto', fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>
-                            {mc.numSims.toLocaleString()} simulations · σ={mc.stdDev}% · {riskProfiles[mc.riskProfile]?.label ?? 'Custom'}
-                          </span>
-                        </div>
-
-                        {/* Fan Chart */}
-                        <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '20px', marginBottom: '24px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                            <h3 style={{ margin: 0, color: 'rgba(255,255,255,0.9)', fontSize: '16px', fontWeight: '700' }}>📊 TSP Balance — Probability Fan Chart</h3>
-                            <div style={{ display: 'flex', gap: '16px', fontSize: '11px' }}>
-                              {[['rgba(40,167,69,0.25)', 'rgba(40,167,69,0.7)', '10th–90th %ile (outer)'],
-                                ['rgba(255,153,51,0.3)', 'rgba(255,153,51,0.8)', '25th–75th %ile (inner)'],
-                                ['#fff', '#fff', 'Median (50th)']].map(([bg, border, label]) => (
-                                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                  <div style={{ width: '14px', height: '4px', background: border, borderRadius: '2px' }} />
-                                  <span style={{ color: 'rgba(255,255,255,0.5)' }}>{label}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                          <ResponsiveContainer width="100%" height={360}>
-                            <ComposedChart data={mc.chartData}>
-                              <defs>
-                                <linearGradient id="outerBand" x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="5%" stopColor="#28a745" stopOpacity={0.15}/>
-                                  <stop offset="95%" stopColor="#28a745" stopOpacity={0.05}/>
-                                </linearGradient>
-                                <linearGradient id="innerBand" x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="5%" stopColor="#FF9933" stopOpacity={0.25}/>
-                                  <stop offset="95%" stopColor="#FF9933" stopOpacity={0.1}/>
-                                </linearGradient>
-                              </defs>
-                              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                              <XAxis dataKey="age" stroke="rgba(255,255,255,0.4)" style={{ fontSize: '11px' }}
-                                label={{ value: 'Age', position: 'insideBottom', offset: -2, fill: 'rgba(255,255,255,0.4)', fontSize: 11 }} />
-                              <YAxis stroke="rgba(255,255,255,0.4)" style={{ fontSize: '11px' }}
-                                tickFormatter={v => v >= 1000000 ? `$${(v/1000000).toFixed(1)}M` : v >= 1000 ? `$${(v/1000).toFixed(0)}K` : `$${v}`} />
-                              <Tooltip
-                                contentStyle={{ background: '#1a1a2e', border: '1px solid rgba(255,153,51,0.3)', borderRadius: '8px', fontSize: '12px' }}
-                                labelStyle={{ color: '#FF9933', fontWeight: '700' }}
-                                labelFormatter={v => `Age ${v}`}
-                                formatter={(value, name) => [formatCurrency(value), name]}
-                              />
-                              {/* Life expectancy reference line */}
-                              <ReferenceLine x={mc.lifeExpAge} stroke="rgba(204,153,204,0.6)" strokeDasharray="6 3"
-                                label={{ value: `Life exp. ${mc.lifeExpAge}`, position: 'top', fill: '#CC99CC', fontSize: 10 }} />
-                              {/* Outer band (10–90) */}
-                              <Area type="monotone" dataKey="pct90" stroke="rgba(40,167,69,0.4)" fill="url(#outerBand)" name="90th %ile" strokeWidth={1} />
-                              <Area type="monotone" dataKey="pct10" stroke="rgba(40,167,69,0.4)" fill="#1a1a2e" name="10th %ile" strokeWidth={1} />
-                              {/* Inner band (25–75) */}
-                              <Area type="monotone" dataKey="pct75" stroke="rgba(255,153,51,0.5)" fill="url(#innerBand)" name="75th %ile" strokeWidth={1} />
-                              <Area type="monotone" dataKey="pct25" stroke="rgba(255,153,51,0.5)" fill="#1a1a2e" name="25th %ile" strokeWidth={1} />
-                              {/* Median line */}
-                              <Line type="monotone" dataKey="pct50" stroke="#ffffff" strokeWidth={2.5} name="Median" dot={false} />
-                            </ComposedChart>
-                          </ResponsiveContainer>
-                          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', textAlign: 'center', marginTop: '8px', fontStyle: 'italic' }}>
-                            Green outer band = 80% of outcomes (10th–90th percentile) · Orange inner band = middle 50% (25th–75th) · White line = median
-                          </div>
-                        </div>
-
-                        {/* Key Age Summary Table */}
-                        <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '20px', marginBottom: '24px' }}>
-                          <h3 style={{ margin: '0 0 16px 0', color: 'rgba(255,255,255,0.9)', fontSize: '16px', fontWeight: '700' }}>📋 TSP Balance at Key Ages</h3>
-                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', color: 'rgba(255,255,255,0.9)' }}>
-                            <thead>
-                              <tr style={{ borderBottom: '2px solid rgba(255,153,51,0.4)' }}>
-                                {['Age', 'Year', '10th %ile', '25th %ile', 'Median', '75th %ile', '90th %ile', '% Surviving'].map(h => (
-                                  <th key={h} style={{ padding: '10px 12px', textAlign: h === 'Age' || h === 'Year' ? 'left' : 'right', color: 'rgba(255,255,255,0.6)', fontWeight: '600', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {mc.keyAgeSummary.map((row, idx) => {
-                                const isLifeExp = row.age === mc.lifeExpAge;
-                                const survColor = getScoreColor(row.survivalRate);
-                                return (
-                                  <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: isLifeExp ? 'rgba(204,153,204,0.08)' : 'transparent' }}>
-                                    <td style={{ padding: '12px', fontWeight: isLifeExp ? '700' : '400' }}>
-                                      {row.age} {isLifeExp && <span style={{ fontSize: '10px', color: '#CC99CC', marginLeft: '4px' }}>← life exp.</span>}
-                                    </td>
-                                    <td style={{ padding: '12px', color: 'rgba(255,255,255,0.5)' }}>{row.year}</td>
-                                    <td style={{ padding: '12px', textAlign: 'right', color: '#dc3545' }}>{formatCurrency(row.pct10)}</td>
-                                    <td style={{ padding: '12px', textAlign: 'right', color: '#FF9933' }}>{formatCurrency(row.pct25)}</td>
-                                    <td style={{ padding: '12px', textAlign: 'right', color: '#fff', fontWeight: '600' }}>{formatCurrency(row.pct50)}</td>
-                                    <td style={{ padding: '12px', textAlign: 'right', color: '#5bc0de' }}>{formatCurrency(row.pct75)}</td>
-                                    <td style={{ padding: '12px', textAlign: 'right', color: '#28a745' }}>{formatCurrency(row.pct90)}</td>
-                                    <td style={{ padding: '12px', textAlign: 'right' }}>
-                                      <span style={{ background: `${survColor}22`, color: survColor, padding: '3px 8px', borderRadius: '12px', fontWeight: '700', fontSize: '12px' }}>
-                                        {row.survivalRate}%
-                                      </span>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-
-                        {/* Methodology note */}
-                        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', padding: '16px', fontSize: '11px', color: 'rgba(255,255,255,0.35)', lineHeight: '1.7' }}>
-                          <strong style={{ color: 'rgba(255,255,255,0.5)' }}>Methodology:</strong> {mc.numSims.toLocaleString()} independent simulations using log-normal annual returns with mean {tspGrowthRate}% and σ={mc.stdDev}% (based on historical {riskProfiles[mc.riskProfile]?.label ?? 'custom'} portfolio data).
-                          Each year's return is independently sampled — sequence-of-returns risk is captured. FERS pension, SRS, and Social Security are treated as deterministic (fixed with COLA); only TSP portfolio returns are randomized.
-                          This simulation is for educational purposes and does not constitute financial advice.
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-              ) : viewMode === 'table' ? (
+              {viewMode === 'table' ? (
                 <div style={{ 
                   overflowX: 'auto', 
                   background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)', 
@@ -3791,25 +3149,24 @@ const BearingApp = () => {
                     width: '100%', boxSizing: 'border-box',
                     borderCollapse: 'collapse',
                     color: 'rgba(255, 255, 255, 0.9)',
-                    fontSize: '12px',
-                    tableLayout: 'auto'
+                    fontSize: '13px'
                   }}>
                     <thead>
-                      <tr style={{ backgroundColor: 'rgba(255, 153, 51, 0.15)', borderBottom: '2px solid #FF9933' }}>
-                        <th style={{ padding: '10px 6px', textAlign: 'left', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)', whiteSpace: 'nowrap', fontSize: '12px' }}>Year</th>
-                        <th style={{ padding: '10px 6px', textAlign: 'left', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)', whiteSpace: 'nowrap', fontSize: '12px' }}>Age</th>
-                        <th style={{ padding: '10px 6px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)', whiteSpace: 'nowrap', fontSize: '12px' }}>FERS (Net)</th>
-                        <th style={{ padding: '10px 6px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)', whiteSpace: 'nowrap', fontSize: '12px' }}>Deductions</th>
-                        <th style={{ padding: '10px 6px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)', whiteSpace: 'nowrap', fontSize: '12px' }}>SRS</th>
-                        <th style={{ padding: '10px 6px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)', whiteSpace: 'nowrap', fontSize: '12px' }}>Soc Sec</th>
-                        <th style={{ padding: '10px 6px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)', whiteSpace: 'nowrap', fontSize: '12px' }}>TSP W/D</th>
-                        <th style={{ padding: '10px 6px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)', whiteSpace: 'nowrap', fontSize: '12px' }}>Add'l Income</th>
-                        <th style={{ padding: '10px 6px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)', whiteSpace: 'nowrap', fontSize: '12px' }}>Est. Taxes</th>
-                        <th style={{ padding: '10px 6px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)', whiteSpace: 'nowrap', fontSize: '12px' }}>Est. TSP Taxes</th>
-                        <th style={{ padding: '10px 6px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)', whiteSpace: 'nowrap', fontSize: '12px' }}>Budget</th>
-                        <th style={{ padding: '10px 6px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)', whiteSpace: 'nowrap', fontSize: '12px' }}>Expenses</th>
-                        <th style={{ padding: '10px 6px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)', whiteSpace: 'nowrap', fontSize: '12px' }}>Total Income</th>
-                        <th style={{ padding: '10px 6px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)', whiteSpace: 'nowrap', fontSize: '12px' }}>TSP Balance</th>
+                      <tr style={{ backgroundColor: '#f8f8f8', borderBottom: '2px solid #FF9933' }}>
+                        <th style={{ padding: '12px 10px', textAlign: 'left', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)' }}>Year</th>
+                        <th style={{ padding: '12px 10px', textAlign: 'left', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)' }}>Age</th>
+                        <th style={{ padding: '12px 10px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)' }}>FERS (Net)</th>
+                        <th style={{ padding: '12px 10px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)' }}>Deductions</th>
+                        <th style={{ padding: '12px 10px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)' }}>SRS</th>
+                        <th style={{ padding: '12px 10px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)' }}>Soc Sec</th>
+                        <th style={{ padding: '12px 10px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)' }}>TSP W/D</th>
+                        <th style={{ padding: '12px 10px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)' }}>Add'l Income</th>
+                        <th style={{ padding: '12px 10px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)' }}>Est. Taxes</th>
+                        <th style={{ padding: '12px 10px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)' }}>Est. TSP Taxes</th>
+                        <th style={{ padding: '12px 10px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)' }}>Budget</th>
+                        <th style={{ padding: '12px 10px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)' }}>Expenses</th>
+                        <th style={{ padding: '12px 10px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)' }}>Total Income</th>
+                        <th style={{ padding: '12px 10px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)' }}>TSP Balance</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -3819,38 +3176,38 @@ const BearingApp = () => {
                           <tr 
                             onClick={() => toggleRowExpansion(proj.year)}
                             style={{
-                              backgroundColor: idx % 2 === 0 ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.08)',
-                              borderBottom: '1px solid rgba(255,255,255,0.08)',
+                              backgroundColor: idx % 2 === 0 ? '#ffffff' : '#fafafa',
+                              borderBottom: '1px solid #eeeeee',
                               cursor: 'pointer'
                             }}
                           >
-                            <td style={{ padding: '8px 6px', color: 'rgba(255, 255, 255, 0.9)', whiteSpace: 'nowrap' }}>
+                            <td style={{ padding: '10px', color: 'rgba(255, 255, 255, 0.9)' }}>
                               {expandedRows.has(proj.year) ? '▼' : '▶'} {proj.year}
                             </td>
-                            <td style={{ padding: '8px 6px', color: 'rgba(255, 255, 255, 0.9)', whiteSpace: 'nowrap' }}>{proj.age}</td>
-                            <td style={{ padding: '8px 6px', textAlign: 'right', color: 'rgba(255, 255, 255, 0.9)', whiteSpace: 'nowrap' }}>
+                            <td style={{ padding: '10px', color: 'rgba(255, 255, 255, 0.9)' }}>{proj.age}</td>
+                            <td style={{ padding: '10px', textAlign: 'right', color: 'rgba(255, 255, 255, 0.9)' }}>
                               {formatCurrency(proj.fers)}
                             </td>
-                            <td style={{ padding: '8px 6px', textAlign: 'right', color: '#dc3545', whiteSpace: 'nowrap' }}>
+                            <td style={{ padding: '10px', textAlign: 'right', color: '#dc3545' }}>
                               {formatCurrency(proj.deductions)}
                             </td>
-                            <td style={{ padding: '8px 6px', textAlign: 'right', color: 'rgba(255, 255, 255, 0.9)', whiteSpace: 'nowrap' }}>{formatCurrency(proj.srs)}</td>
-                            <td style={{ padding: '8px 6px', textAlign: 'right', color: 'rgba(255, 255, 255, 0.9)', whiteSpace: 'nowrap' }}>{formatCurrency(proj.ss)}</td>
-                            <td style={{ padding: '8px 6px', textAlign: 'right', color: 'rgba(255, 255, 255, 0.9)', whiteSpace: 'nowrap' }}>{formatCurrency(proj.tspWithdrawal)}</td>
-                            <td style={{ padding: '8px 6px', textAlign: 'right', color: '#28a745', whiteSpace: 'nowrap' }}>{formatCurrency(proj.additionalIncome)}</td>
-                            <td style={{ padding: '8px 6px', textAlign: 'right', color: '#dc3545', whiteSpace: 'nowrap' }}>{formatCurrency(proj.estimatedTaxes)}</td>
-                            <td style={{ padding: '8px 6px', textAlign: 'right', color: '#dc3545', whiteSpace: 'nowrap' }}>{formatCurrency(proj.estimatedTspTaxes)}</td>
-                            <td style={{ padding: '8px 6px', textAlign: 'right', color: 'rgba(255, 255, 255, 0.9)', whiteSpace: 'nowrap' }}>
+                            <td style={{ padding: '10px', textAlign: 'right', color: 'rgba(255, 255, 255, 0.9)' }}>{formatCurrency(proj.srs)}</td>
+                            <td style={{ padding: '10px', textAlign: 'right', color: 'rgba(255, 255, 255, 0.9)' }}>{formatCurrency(proj.ss)}</td>
+                            <td style={{ padding: '10px', textAlign: 'right', color: 'rgba(255, 255, 255, 0.9)' }}>{formatCurrency(proj.tspWithdrawal)}</td>
+                            <td style={{ padding: '10px', textAlign: 'right', color: '#28a745' }}>{formatCurrency(proj.additionalIncome)}</td>
+                            <td style={{ padding: '10px', textAlign: 'right', color: '#dc3545' }}>{formatCurrency(proj.estimatedTaxes)}</td>
+                            <td style={{ padding: '10px', textAlign: 'right', color: '#dc3545' }}>{formatCurrency(proj.estimatedTspTaxes)}</td>
+                            <td style={{ padding: '10px', textAlign: 'right', color: 'rgba(255, 255, 255, 0.9)' }}>
                               {formatCurrency(proj.budget)}
                             </td>
-                            <td style={{ padding: '8px 6px', textAlign: 'right', color: 'rgba(255, 255, 255, 0.9)', whiteSpace: 'nowrap' }}>{formatCurrency(proj.expenses)}</td>
-                            <td style={{ padding: '8px 6px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.9)', whiteSpace: 'nowrap' }}>{formatCurrency(proj.totalIncome)}</td>
-                            <td style={{ padding: '8px 6px', textAlign: 'right', color: 'rgba(255, 255, 255, 0.9)', whiteSpace: 'nowrap' }}>{formatCurrency(proj.tspBalance)}</td>
+                            <td style={{ padding: '10px', textAlign: 'right', color: 'rgba(255, 255, 255, 0.9)' }}>{formatCurrency(proj.expenses)}</td>
+                            <td style={{ padding: '10px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.9)' }}>{formatCurrency(proj.totalIncome)}</td>
+                            <td style={{ padding: '10px', textAlign: 'right', color: 'rgba(255, 255, 255, 0.9)' }}>{formatCurrency(proj.tspBalance)}</td>
                           </tr>
                           
                           {/* Expanded Row Details */}
                           {expandedRows.has(proj.year) && (
-                            <tr style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
+                            <tr style={{ backgroundColor: '#f9f9f9' }}>
                               <td colSpan="14" style={{ padding: '15px 20px' }}>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
                                   {/* Income Details */}
@@ -4069,13 +3426,13 @@ const BearingApp = () => {
                 
                 {/* Breakeven Target Calculator */}
                 <div style={{ 
-                  backgroundColor: 'rgba(91, 192, 222, 0.1)', 
-                  border: '2px solid rgba(91, 192, 222, 0.5)',
+                  backgroundColor: '#f0f8ff', 
+                  border: '2px solid #5bc0de',
                   borderRadius: '4px',
                   padding: '15px',
                   marginBottom: '25px'
                 }}>
-                  <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#5bc0de', fontWeight: '600' }}>
+                  <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#0066cc', fontWeight: '600' }}>
                     📊 Breakeven Analysis
                   </h3>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '15px', fontSize: '13px' }}>
@@ -4128,7 +3485,7 @@ const BearingApp = () => {
                     fontSize: '12px'
                   }}>
                     <thead>
-                      <tr style={{ backgroundColor: 'rgba(255, 153, 51, 0.15)', borderBottom: '2px solid #FF9933' }}>
+                      <tr style={{ backgroundColor: '#f8f8f8', borderBottom: '2px solid #FF9933' }}>
                         <th style={{ padding: '10px', textAlign: 'left', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)' }}>Month</th>
                         <th style={{ padding: '10px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)' }}>Income</th>
                         <th style={{ padding: '10px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)' }}>PM Fee</th>
@@ -4141,8 +3498,8 @@ const BearingApp = () => {
                     <tbody>
                       {calculateRentalProperty().map((row, idx) => (
                         <tr key={idx} style={{
-                          backgroundColor: idx % 2 === 0 ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.08)',
-                          borderBottom: '1px solid rgba(255,255,255,0.08)'
+                          backgroundColor: idx % 2 === 0 ? '#ffffff' : '#fafafa',
+                          borderBottom: '1px solid #eeeeee'
                         }}>
                           <td style={{ padding: '8px', color: 'rgba(255, 255, 255, 0.9)', fontWeight: row.monthIndex === 0 ? '600' : 'normal' }}>{row.month}</td>
                           <td style={{ padding: '8px', textAlign: 'right', color: '#28a745' }}>{formatCurrency(row.income)}</td>
