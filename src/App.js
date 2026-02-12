@@ -2081,6 +2081,34 @@ const BearingApp = () => {
                     </div>
                   </>
                 )}
+
+                {tspWithdrawalType === 'percent' && (
+                  <>
+                    <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', fontWeight: '500' }}>
+                      Annual Withdrawal Rate (%)
+                    </label>
+                    <div style={{ position: 'relative', marginBottom: '15px' }}>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={tspWithdrawalPercent}
+                        onChange={(e) => setTspWithdrawalPercent(Number(e.target.value))}
+                        style={{
+                          width: '100%', boxSizing: 'border-box',
+                          padding: '10px',
+                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          fontSize: '14px'
+                        }}
+                      />
+                      <span style={{ position: 'absolute', right: '12px', top: '11px', color: '#999', fontSize: '14px' }}>%</span>
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#999', fontStyle: 'italic', marginTop: '-10px', marginBottom: '15px' }}>
+                      💡 The 4% rule is a common safe withdrawal rate for retirement
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
