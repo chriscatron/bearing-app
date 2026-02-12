@@ -658,16 +658,14 @@ const BearingApp = () => {
 
   const calculateProjections = () => {
     // Parse DOB - handle both MM/DD/YYYY format and YYYY-MM-DD format
-    let birthYear, birthMonth;
+    let birthYear;
     if (dob.includes('-')) {
       // Date input format: YYYY-MM-DD
       const parts = dob.split('-');
       birthYear = parseInt(parts[0]);
-      birthMonth = parseInt(parts[1]);
     } else {
       // Text input format: MM/DD/YYYY
       const parts = dob.split('/');
-      birthMonth = parseInt(parts[0]);
       birthYear = parseInt(parts[2]);
     }
     const currentYear = new Date().getFullYear();
@@ -1045,13 +1043,13 @@ const BearingApp = () => {
       const stdDev = mcStdDevOverride !== null ? mcStdDevOverride : riskProfiles[mcRiskProfile].stdDev;
 
       // Parse DOB
-      let birthYear, birthMonth;
+      let birthYear;
       if (dob.includes('-')) {
         const parts = dob.split('-');
-        birthYear = parseInt(parts[0]); birthMonth = parseInt(parts[1]);
+        birthYear = parseInt(parts[0]);
       } else {
         const parts = dob.split('/');
-        birthMonth = parseInt(parts[0]); birthYear = parseInt(parts[2]);
+        birthYear = parseInt(parts[2]);
       }
       const currentYear = new Date().getFullYear();
       const startAge = currentYear - birthYear;
