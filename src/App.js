@@ -19,7 +19,6 @@ const BearingApp = () => {
   // If NOT retired - calculate pension from High-3
   const [high3Salary, setHigh3Salary] = useState(120000);
   const [yearsOfService, setYearsOfService] = useState(30);
-  const [plannedRetirementAge, setPlannedRetirementAge] = useState(62);
   
   // If ALREADY retired - enter from OPM statement
   const [monthlyGrossPension, setMonthlyGrossPension] = useState(6500);
@@ -1079,6 +1078,7 @@ const BearingApp = () => {
       const stdDev = mcStdDevOverride !== null ? mcStdDevOverride : riskProfiles[mcRiskProfile].stdDev;
 
       // Parse DOB
+      // eslint-disable-next-line no-unused-vars
       let birthYear, birthMonth;
       if (dob.includes('-')) {
         const parts = dob.split('-');
