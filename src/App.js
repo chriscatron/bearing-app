@@ -1077,15 +1077,14 @@ const BearingApp = () => {
       const NUM_SIMS = 5000;
       const stdDev = mcStdDevOverride !== null ? mcStdDevOverride : riskProfiles[mcRiskProfile].stdDev;
 
-      // Parse DOB
-      // eslint-disable-next-line no-unused-vars
-      let birthYear, birthMonth;
+      // Parse DOB - only need birth year for Monte Carlo
+      let birthYear;
       if (dob.includes('-')) {
         const parts = dob.split('-');
-        birthYear = parseInt(parts[0]); birthMonth = parseInt(parts[1]);
+        birthYear = parseInt(parts[0]);
       } else {
         const parts = dob.split('/');
-        birthMonth = parseInt(parts[0]); birthYear = parseInt(parts[2]);
+        birthYear = parseInt(parts[2]);
       }
       const currentYear = new Date().getFullYear();
       const startAge = currentYear - birthYear;
