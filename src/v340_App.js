@@ -2,30 +2,14 @@ import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, ReferenceLine, ComposedChart } from 'recharts';
 
-console.log("✨ v3.5.05 - All view toggle buttons frosted glass");
+console.log("✨ v3.4.0 - Restructured income flow for retirement planning");
 console.log("🔵 APP.JS LOADED - Y-AXIS FIX VERSION 999");
 const BearingApp = () => {
   // Person 1 (primary) - Demo data defaults
-  const [person1Dob, setPerson1Dob] = useState('1964-04-29'); // ISO format for input type="date"
-  const [retirementAge, setRetirementAge] = useState(62);
-  const [dob, setDob] = useState('04/29/1964'); // Keep for backward compatibility
+  const [dob, setDob] = useState('04/29/1964');
   const [person1Sex, setPerson1Sex] = useState('male'); // For actuarial tables
   const [person1LifeExpectancy, setPerson1LifeExpectancy] = useState(82);
   const [isMonthly, setIsMonthly] = useState(true);
-  
-  // FERS Pension - Toggle between planning vs already retired
-  const [alreadyRetired, setAlreadyRetired] = useState(false);
-  
-  // If NOT retired - calculate pension from High-3
-  const [high3Salary, setHigh3Salary] = useState(120000);
-  const [yearsOfService, setYearsOfService] = useState(30);
-  
-  // If ALREADY retired - enter from OPM statement
-  const [monthlyGrossPension, setMonthlyGrossPension] = useState(6500);
-  const [monthlyFEHB, setMonthlyFEHB] = useState(550);
-  const [monthlyFEGLI, setMonthlyFEGLI] = useState(65);
-  const [monthlyOtherDeductions, setMonthlyOtherDeductions] = useState(0);
-  
   const [fersAmount, setFersAmount] = useState(6500);
   const [srsAmount, setSrsAmount] = useState(1360);
   const [ssAmount, setSsAmount] = useState(2795);
@@ -53,43 +37,7 @@ const BearingApp = () => {
   const [tspWithdrawalPercent, setTspWithdrawalPercent] = useState(4.0);
   const [tspWithdrawalCola, setTspWithdrawalCola] = useState(2.6);
   const [tspCoverTaxes, setTspCoverTaxes] = useState(true);
-
-  // Other Investment Accounts (IRAs, Brokerage)
-  const [otherAccounts, setOtherAccounts] = useState([]);
-
-  // TSP Withdrawal Schedule — 3 phases with RMD floor
-  const [tspScheduleEnabled, setTspScheduleEnabled] = useState(false);
-  const [tspPhase1Amount, setTspPhase1Amount] = useState(3000);
-  const [tspPhase2Age, setTspPhase2Age] = useState(70);
-  const [tspPhase2Amount, setTspPhase2Amount] = useState(2500);
-  const [tspPhase3Age, setTspPhase3Age] = useState(80);
-  const [tspPhase3Amount, setTspPhase3Amount] = useState(2000);
-
-  // eslint-disable-next-line no-unused-vars
-  const addOtherAccount = (type) => {
-    const defaults = {
-      traditional_ira: { name: 'Traditional IRA', growthRate: 6.5, monthlyWithdrawal: 500, color: '#5bc0de' },
-      roth_ira: { name: 'Roth IRA', growthRate: 7.0, monthlyWithdrawal: 500, color: '#5cb85c' },
-      brokerage: { name: 'Brokerage Account', growthRate: 6.0, monthlyWithdrawal: 500, color: '#CC99CC' },
-    };
-    const d = defaults[type];
-    setOtherAccounts(prev => [...prev, {
-      id: Date.now(), name: d.name, type, balance: 0,
-      growthRate: d.growthRate, monthlyWithdrawal: d.monthlyWithdrawal,
-      withdrawalStartAge: 65, cola: 2.0, color: d.color,
-    }]);
-  };
-
-  // eslint-disable-next-line no-unused-vars
-  const updateOtherAccount = (id, field, value) => {
-    setOtherAccounts(prev => prev.map(a => a.id === id ? { ...a, [field]: value } : a));
-  };
-
-  // eslint-disable-next-line no-unused-vars
-  const removeOtherAccount = (id) => {
-    setOtherAccounts(prev => prev.filter(a => a.id !== id));
-  };
-
+  
   // Pension Deductions (monthly amounts)
   const [healthInsurance, setHealthInsurance] = useState(550);
   const [lifeInsurance, setLifeInsurance] = useState(65);
@@ -197,18 +145,11 @@ const BearingApp = () => {
   
   // Starter Scenario state
   const [showScenarioPicker, setShowScenarioPicker] = useState(true);
-
-  // ── Assessment Wizard ─────────────────────────────────────────────────────
-  const [showWizard, setShowWizard] = useState(false);
-  const [wizardStep, setWizardStep] = useState(0);
-  const [wizardAnswers, setWizardAnswers] = useState({});
-  const [wizardResults, setWizardResults] = useState(null);
   
   // Track expanded rows and cells
   const [expandedRows, setExpandedRows] = useState(new Set());
   
   const [openSections, setOpenSections] = useState({
-    aboutYou: false,
     income: false,
     accounts: false,
     additional: false,
@@ -217,10 +158,7 @@ const BearingApp = () => {
     taxes: false,
     settings: false,
     rental: false,
-    withdrawalStrategy: false,
-    fersPension: false,
-    socialSecurity: false,
-    tspWithdrawals: false
+    withdrawalStrategy: false
   });
 
   const [openGroups, setOpenGroups] = useState({
@@ -527,225 +465,189 @@ const BearingApp = () => {
     setHasCalculated(true);
   };
 
-  // ── SINGLE SOURCE OF TRUTH: all saveable state ───────────────────────────
-  const buildSaveData = () => ({
-    _version: '3.6',
-    // Identity
-    dob, person1Dob, person1Sex, person1LifeExpectancy, retirementAge, isMonthly,
-    // Person 2
-    person2Enabled, person2Dob, person2Sex, person2LifeExpectancy,
-    person2FersAmount, person2SrsAmount, person2SsAmount, person2SsStartAge, fersSurvivorRate,
-    // FERS
-    alreadyRetired, high3Salary, yearsOfService,
-    monthlyGrossPension, monthlyFEHB, monthlyFEGLI, monthlyOtherDeductions,
-    fersAmount, srsAmount, ssAmount, ssStartAge,
-    fersCola, srsCola, ssCola, projectionYears,
-    // TSP
-    tspBalance, tspGrowthRate, tspWithdrawalType,
-    tspWithdrawalAmount, tspWithdrawalPercent, tspWithdrawalCola, tspCoverTaxes,
-    tspScheduleEnabled, tspPhase1Amount, tspPhase2Age, tspPhase2Amount, tspPhase3Age, tspPhase3Amount,
-    // Other accounts
-    otherAccounts,
-    // Deductions
-    healthInsurance, lifeInsurance, dentalInsurance,
-    // Budget
-    budgetMode,
-    budgetHousing, budgetHousingDetails,
-    budgetFood, budgetFoodDetails,
-    budgetTransportation, budgetTransportationDetails,
-    budgetHealthcare, budgetHealthcareDetails,
-    budgetEntertainment, budgetEntertainmentDetails,
-    budgetOther, budgetOtherDetails,
-    // Misc income / expenses
-    inflationRate, expenses, additionalIncome,
-    taxBracket, federalWithheld,
-    // Rental
-    rentalIncome2025, rentalIncome2026, rentalIncome2027,
-    rentalMortgage, rentalPropertyTax, rentalInsurance, rentalHOA,
-    rentalUtilities2025, rentalUtilities2026, rentalUtilities2027,
-    rentalInternet, rentalMaintenance, rentalLandscaping, rentalPestControl, rentalOther,
-    // Monte Carlo
-    mcRiskProfile,
-  });
-
-  const applyLoadedData = (data) => {
-    if (!data) return;
-    const s = (setter, key, def) => setter(data[key] !== undefined ? data[key] : def);
-    s(setDob, 'dob', '04/29/1964');
-    s(setPerson1Dob, 'person1Dob', '1964-04-29');
-    s(setPerson1Sex, 'person1Sex', 'male');
-    s(setPerson1LifeExpectancy, 'person1LifeExpectancy', 82);
-    s(setRetirementAge, 'retirementAge', 62);
-    s(setIsMonthly, 'isMonthly', true);
-    s(setPerson2Enabled, 'person2Enabled', false);
-    s(setPerson2Dob, 'person2Dob', '');
-    s(setPerson2Sex, 'person2Sex', 'female');
-    s(setPerson2LifeExpectancy, 'person2LifeExpectancy', 85);
-    s(setPerson2FersAmount, 'person2FersAmount', 0);
-    s(setPerson2SrsAmount, 'person2SrsAmount', 0);
-    s(setPerson2SsAmount, 'person2SsAmount', 0);
-    s(setPerson2SsStartAge, 'person2SsStartAge', 67);
-    s(setFersSurvivorRate, 'fersSurvivorRate', 50);
-    s(setAlreadyRetired, 'alreadyRetired', false);
-    s(setHigh3Salary, 'high3Salary', 120000);
-    s(setYearsOfService, 'yearsOfService', 30);
-    s(setMonthlyGrossPension, 'monthlyGrossPension', 6500);
-    s(setMonthlyFEHB, 'monthlyFEHB', 550);
-    s(setMonthlyFEGLI, 'monthlyFEGLI', 65);
-    s(setMonthlyOtherDeductions, 'monthlyOtherDeductions', 0);
-    s(setFersAmount, 'fersAmount', 0);
-    s(setSrsAmount, 'srsAmount', 0);
-    s(setSsAmount, 'ssAmount', 0);
-    s(setSsStartAge, 'ssStartAge', 67);
-    s(setFersCola, 'fersCola', 2.6);
-    s(setSrsCola, 'srsCola', 2.6);
-    s(setSsCola, 'ssCola', 2.6);
-    s(setProjectionYears, 'projectionYears', 40);
-    s(setTspBalance, 'tspBalance', 0);
-    s(setTspGrowthRate, 'tspGrowthRate', 6.5);
-    s(setTspWithdrawalType, 'tspWithdrawalType', 'amount');
-    s(setTspWithdrawalAmount, 'tspWithdrawalAmount', 0);
-    s(setTspWithdrawalPercent, 'tspWithdrawalPercent', 4.0);
-    s(setTspWithdrawalCola, 'tspWithdrawalCola', 2.6);
-    s(setTspCoverTaxes, 'tspCoverTaxes', false);
-    s(setTspScheduleEnabled, 'tspScheduleEnabled', false);
-    s(setTspPhase1Amount, 'tspPhase1Amount', 3000);
-    s(setTspPhase2Age, 'tspPhase2Age', 70);
-    s(setTspPhase2Amount, 'tspPhase2Amount', 2500);
-    s(setTspPhase3Age, 'tspPhase3Age', 80);
-    s(setTspPhase3Amount, 'tspPhase3Amount', 2000);
-    s(setOtherAccounts, 'otherAccounts', []);
-    s(setHealthInsurance, 'healthInsurance', 0);
-    s(setLifeInsurance, 'lifeInsurance', 0);
-    s(setDentalInsurance, 'dentalInsurance', 0);
-    if (data.budgetMode) setBudgetMode(data.budgetMode);
-    s(setBudgetHousing, 'budgetHousing', 0);
-    if (data.budgetHousingDetails) setBudgetHousingDetails(data.budgetHousingDetails);
-    s(setBudgetFood, 'budgetFood', 0);
-    if (data.budgetFoodDetails) setBudgetFoodDetails(data.budgetFoodDetails);
-    s(setBudgetTransportation, 'budgetTransportation', 0);
-    if (data.budgetTransportationDetails) setBudgetTransportationDetails(data.budgetTransportationDetails);
-    s(setBudgetHealthcare, 'budgetHealthcare', 0);
-    if (data.budgetHealthcareDetails) setBudgetHealthcareDetails(data.budgetHealthcareDetails);
-    s(setBudgetEntertainment, 'budgetEntertainment', 0);
-    if (data.budgetEntertainmentDetails) setBudgetEntertainmentDetails(data.budgetEntertainmentDetails);
-    s(setBudgetOther, 'budgetOther', 0);
-    if (data.budgetOtherDetails) setBudgetOtherDetails(data.budgetOtherDetails);
-    s(setInflationRate, 'inflationRate', 2.6);
-    s(setExpenses, 'expenses', []);
-    s(setAdditionalIncome, 'additionalIncome', []);
-    s(setTaxBracket, 'taxBracket', 22);
-    s(setFederalWithheld, 'federalWithheld', 0);
-    if (data.rentalIncome2025) setRentalIncome2025(data.rentalIncome2025);
-    if (data.rentalIncome2026) setRentalIncome2026(data.rentalIncome2026);
-    if (data.rentalIncome2027) setRentalIncome2027(data.rentalIncome2027);
-    s(setRentalMortgage, 'rentalMortgage', 0);
-    s(setRentalPropertyTax, 'rentalPropertyTax', 0);
-    s(setRentalInsurance, 'rentalInsurance', 0);
-    s(setRentalHOA, 'rentalHOA', 0);
-    if (data.rentalUtilities2025) setRentalUtilities2025(data.rentalUtilities2025);
-    if (data.rentalUtilities2026) setRentalUtilities2026(data.rentalUtilities2026);
-    if (data.rentalUtilities2027) setRentalUtilities2027(data.rentalUtilities2027);
-    s(setRentalInternet, 'rentalInternet', 0);
-    s(setRentalMaintenance, 'rentalMaintenance', 0);
-    s(setRentalLandscaping, 'rentalLandscaping', 0);
-    s(setRentalPestControl, 'rentalPestControl', 0);
-    s(setRentalOther, 'rentalOther', 0);
-    s(setMcRiskProfile, 'mcRiskProfile', 'moderate');
-  };
-
-  // Auto-save: single source of truth
+  // Auto-save to localStorage whenever inputs change
   React.useEffect(() => {
-    localStorage.setItem('bearingData', JSON.stringify(buildSaveData()));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    dob, person1Dob, person1Sex, person1LifeExpectancy, retirementAge, isMonthly,
-    person2Enabled, person2Dob, person2Sex, person2LifeExpectancy,
-    person2FersAmount, person2SrsAmount, person2SsAmount, person2SsStartAge, fersSurvivorRate,
-    alreadyRetired, high3Salary, yearsOfService,
-    monthlyGrossPension, monthlyFEHB, monthlyFEGLI, monthlyOtherDeductions,
-    fersAmount, srsAmount, ssAmount, ssStartAge, fersCola, srsCola, ssCola, projectionYears,
-    tspBalance, tspGrowthRate, tspWithdrawalType, tspWithdrawalAmount,
-    tspWithdrawalPercent, tspWithdrawalCola, tspCoverTaxes, otherAccounts,
-    tspScheduleEnabled, tspPhase1Amount, tspPhase2Age, tspPhase2Amount, tspPhase3Age, tspPhase3Amount,
-    healthInsurance, lifeInsurance, dentalInsurance,
-    budgetMode, budgetHousing, budgetHousingDetails,
-    budgetFood, budgetFoodDetails, budgetTransportation, budgetTransportationDetails,
-    budgetHealthcare, budgetHealthcareDetails, budgetEntertainment, budgetEntertainmentDetails,
-    budgetOther, budgetOtherDetails,
-    inflationRate, expenses, additionalIncome, taxBracket, federalWithheld,
-    rentalIncome2025, rentalIncome2026, rentalIncome2027,
-    rentalMortgage, rentalPropertyTax, rentalInsurance, rentalHOA,
-    rentalUtilities2025, rentalUtilities2026, rentalUtilities2027,
-    rentalInternet, rentalMaintenance, rentalLandscaping, rentalPestControl, rentalOther,
-    mcRiskProfile,
-  ]);
+    const dataToSave = {
+      dob,
+      isMonthly,
+      fersAmount,
+      srsAmount,
+      ssAmount,
+      fersCola,
+      srsCola,
+      ssCola,
+      projectionYears,
+      tspBalance,
+      tspGrowthRate,
+      tspWithdrawalType,
+      tspWithdrawalAmount,
+      tspWithdrawalPercent,
+      tspWithdrawalCola,
+      tspCoverTaxes,
+      healthInsurance,
+      lifeInsurance,
+      dentalInsurance,
+      budgetHousing,
+      budgetFood,
+      budgetTransportation,
+      budgetHealthcare,
+      budgetEntertainment,
+      budgetOther,
+      inflationRate,
+      expenses,
+      taxBracket,
+      federalWithheld
+    };
+    localStorage.setItem('bearingData', JSON.stringify(dataToSave));
+  }, [dob, isMonthly, fersAmount, srsAmount, ssAmount, fersCola, srsCola, ssCola, projectionYears,
+      tspBalance, tspGrowthRate, tspWithdrawalType, tspWithdrawalAmount, tspWithdrawalPercent,
+      tspWithdrawalCola, tspCoverTaxes, healthInsurance, lifeInsurance, dentalInsurance,
+      budgetHousing, budgetFood, budgetTransportation, budgetHealthcare, budgetEntertainment,
+      budgetOther, inflationRate, expenses, taxBracket, federalWithheld]);
 
-  // Load on mount
+  // Load data from localStorage on mount
   React.useEffect(() => {
-    const saved = localStorage.getItem('bearingData');
-    if (saved) {
-      try { applyLoadedData(JSON.parse(saved)); }
-      catch (e) { console.error('Error loading saved data:', e); }
+    const savedData = localStorage.getItem('bearingData');
+    if (savedData) {
+      try {
+        const data = JSON.parse(savedData);
+        setDob(data.dob || '04/29/1964');
+        setIsMonthly(data.isMonthly ?? true);
+        setFersAmount(data.fersAmount || 0);
+        setSrsAmount(data.srsAmount || 0);
+        setSsAmount(data.ssAmount || 0);
+        setFersCola(data.fersCola || 2.6);
+        setSrsCola(data.srsCola || 2.6);
+        setSsCola(data.ssCola || 2.6);
+        setProjectionYears(data.projectionYears || 40);
+        setTspBalance(data.tspBalance || 0);
+        setTspGrowthRate(data.tspGrowthRate || 7.0);
+        setTspWithdrawalType(data.tspWithdrawalType || 'amount');
+        setTspWithdrawalAmount(data.tspWithdrawalAmount || 0);
+        setTspWithdrawalPercent(data.tspWithdrawalPercent || 4.0);
+        setTspWithdrawalCola(data.tspWithdrawalCola || 2.6);
+        setTspCoverTaxes(data.tspCoverTaxes || false);
+        setHealthInsurance(data.healthInsurance || 0);
+        setLifeInsurance(data.lifeInsurance || 0);
+        setDentalInsurance(data.dentalInsurance || 0);
+        setBudgetHousing(data.budgetHousing || 0);
+        setBudgetFood(data.budgetFood || 0);
+        setBudgetTransportation(data.budgetTransportation || 0);
+        setBudgetHealthcare(data.budgetHealthcare || 0);
+        setBudgetEntertainment(data.budgetEntertainment || 0);
+        setBudgetOther(data.budgetOther || 0);
+        setInflationRate(data.inflationRate || 2.6);
+        setExpenses(data.expenses || []);
+        setTaxBracket(data.taxBracket || 22);
+        setFederalWithheld(data.federalWithheld || 0);
+      } catch (e) {
+        console.error('Error loading saved data:', e);
+      }
     }
-  }, []);
+  }, []); // Empty dependency array - only run on mount
 
   const exportData = () => {
-    const payload = { _version: '3.6', exportDate: new Date().toISOString(), data: buildSaveData() };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const dataToExport = {
+      version: '1.0',
+      exportDate: new Date().toISOString(),
+      data: {
+        dob,
+        isMonthly,
+        fersAmount,
+        srsAmount,
+        ssAmount,
+        fersCola,
+        srsCola,
+        ssCola,
+        projectionYears,
+        tspBalance,
+        tspGrowthRate,
+        tspWithdrawalType,
+        tspWithdrawalAmount,
+        tspWithdrawalPercent,
+        tspWithdrawalCola,
+        tspCoverTaxes,
+        healthInsurance,
+        lifeInsurance,
+        dentalInsurance,
+        budgetHousing,
+        budgetFood,
+        budgetTransportation,
+        budgetHealthcare,
+        budgetEntertainment,
+        budgetOther,
+        inflationRate,
+        expenses,
+        taxBracket,
+        federalWithheld
+      }
+    };
+    
+    const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `bearing-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a); a.click();
-    document.body.removeChild(a); URL.revokeObjectURL(url);
+    a.download = `bearing-data-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
-
-  const [importSuccessMsg, setImportSuccessMsg] = React.useState('');
-  const [showClearConfirm, setShowClearConfirm] = React.useState(false);
 
   const importData = (event) => {
     const file = event.target.files[0];
     if (!file) return;
+    
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const imported = JSON.parse(e.target.result);
-        applyLoadedData(imported.data || imported);
-        setImportSuccessMsg('✅ Data imported successfully!');
-        setTimeout(() => setImportSuccessMsg(''), 4000);
-      } catch (err) {
-        setImportSuccessMsg('❌ Import failed — file may be invalid.');
-        setTimeout(() => setImportSuccessMsg(''), 4000);
-        console.error('Import error:', err);
+        const data = imported.data;
+        
+        setDob(data.dob || '04/29/1964');
+        setIsMonthly(data.isMonthly ?? true);
+        setFersAmount(data.fersAmount || 0);
+        setSrsAmount(data.srsAmount || 0);
+        setSsAmount(data.ssAmount || 0);
+        setFersCola(data.fersCola || 2.6);
+        setSrsCola(data.srsCola || 2.6);
+        setSsCola(data.ssCola || 2.6);
+        setProjectionYears(data.projectionYears || 40);
+        setTspBalance(data.tspBalance || 0);
+        setTspGrowthRate(data.tspGrowthRate || 7.0);
+        setTspWithdrawalType(data.tspWithdrawalType || 'amount');
+        setTspWithdrawalAmount(data.tspWithdrawalAmount || 0);
+        setTspWithdrawalPercent(data.tspWithdrawalPercent || 4.0);
+        setTspWithdrawalCola(data.tspWithdrawalCola || 2.6);
+        setTspCoverTaxes(data.tspCoverTaxes || false);
+        setHealthInsurance(data.healthInsurance || 0);
+        setLifeInsurance(data.lifeInsurance || 0);
+        setDentalInsurance(data.dentalInsurance || 0);
+        setBudgetHousing(data.budgetHousing || 0);
+        setBudgetFood(data.budgetFood || 0);
+        setBudgetTransportation(data.budgetTransportation || 0);
+        setBudgetHealthcare(data.budgetHealthcare || 0);
+        setBudgetEntertainment(data.budgetEntertainment || 0);
+        setBudgetOther(data.budgetOther || 0);
+        setInflationRate(data.inflationRate || 2.6);
+        setExpenses(data.expenses || []);
+        setTaxBracket(data.taxBracket || 22);
+        setFederalWithheld(data.federalWithheld || 0);
+        
+        alert('Data imported successfully!');
+      } catch (e) {
+        alert('Error importing data. Please make sure the file is valid.');
+        console.error('Import error:', e);
       }
     };
     reader.readAsText(file);
-    event.target.value = '';
   };
 
   const clearAllData = () => {
-    setShowClearConfirm(true);
-  };
-
-  const confirmClearData = () => {
-    localStorage.removeItem('bearingData');
-    setShowClearConfirm(false);
-    window.location.reload();
-  };
-
-  // IRS RMD life expectancy table (Uniform Lifetime, simplified)
-  const calculateRMD = (balance, age) => {
-    if (age < 73) return 0;
-    const lifeExpectancyTable = {
-      73: 26.5, 74: 25.5, 75: 24.6, 76: 23.7, 77: 22.9, 78: 22.0,
-      79: 21.1, 80: 20.2, 81: 19.4, 82: 18.5, 83: 17.7, 84: 16.8,
-      85: 16.0, 86: 15.2, 87: 14.4, 88: 13.7, 89: 12.9, 90: 12.2,
-      91: 11.5, 92: 10.8, 93: 10.1, 94: 9.5, 95: 8.9, 96: 8.4,
-      97: 7.8, 98: 7.3, 99: 6.8, 100: 6.4,
-    };
-    const factor = lifeExpectancyTable[Math.min(age, 100)] || 6.4;
-    return balance / factor;
+    if (window.confirm('Are you sure you want to clear all data? This cannot be undone.')) {
+      localStorage.removeItem('bearingData');
+      window.location.reload();
+    }
   };
 
   const calculateTaxes = (fersIncome, ssIncome, tspWithdrawal) => {
@@ -819,42 +721,25 @@ const BearingApp = () => {
       
       // TSP calculations
       let tspWithdrawal = 0;
-      let rmdAmount = 0;
-      let rmdApplied = false;
       if (currentTspBalance > 0) {
-        // Determine planned withdrawal for this age (phased schedule or simple)
-        let plannedAnnual;
-        if (tspScheduleEnabled) {
-          let monthlyAmt = tspPhase1Amount;
-          if (age >= tspPhase3Age) monthlyAmt = tspPhase3Amount;
-          else if (age >= tspPhase2Age) monthlyAmt = tspPhase2Amount;
-          plannedAnnual = monthlyAmt * 12;
-        } else if (tspWithdrawalType === 'amount') {
-          plannedAnnual = currentWithdrawal;
+        if (tspWithdrawalType === 'amount') {
+          // If covering taxes, gross up the withdrawal amount
+          let baseWithdrawal = currentWithdrawal;
+          if (tspCoverTaxes) {
+            // Gross-up formula: actualWithdrawal = desiredAmount / (1 - taxRate)
+            baseWithdrawal = currentWithdrawal / (1 - taxBracket / 100);
+          }
+          tspWithdrawal = Math.min(baseWithdrawal, currentTspBalance);
         } else {
-          plannedAnnual = currentTspBalance * (tspWithdrawalPercent / 100);
+          tspWithdrawal = Math.min(currentTspBalance * (tspWithdrawalPercent / 100), currentTspBalance);
         }
-
-        // Gross up if covering taxes (amount mode only)
-        let baseWithdrawal = plannedAnnual;
-        if (!tspScheduleEnabled && tspWithdrawalType === 'amount' && tspCoverTaxes) {
-          baseWithdrawal = plannedAnnual / (1 - taxBracket / 100);
-        }
-        tspWithdrawal = Math.min(baseWithdrawal, currentTspBalance);
-
-        // RMD override: if age >= 73 and RMD > planned withdrawal, use RMD
-        rmdAmount = calculateRMD(currentTspBalance, age);
-        if (rmdAmount > tspWithdrawal) {
-          tspWithdrawal = Math.min(rmdAmount, currentTspBalance);
-          rmdApplied = true;
-        }
-
+        
         // Update balance: growth then withdrawal
         currentTspBalance = currentTspBalance * (1 + tspGrowthRate / 100) - tspWithdrawal;
         currentTspBalance = Math.max(0, currentTspBalance);
-
-        // COLA on withdrawal for next year (simple amount mode only, not schedule mode)
-        if (!tspScheduleEnabled && tspWithdrawalType === 'amount' && !rmdApplied) {
+        
+        // COLA on withdrawal for next year
+        if (tspWithdrawalType === 'amount') {
           currentWithdrawal *= (1 + tspWithdrawalCola / 100);
         }
       }
@@ -1172,21 +1057,21 @@ const BearingApp = () => {
       const NUM_SIMS = 5000;
       const stdDev = mcStdDevOverride !== null ? mcStdDevOverride : riskProfiles[mcRiskProfile].stdDev;
 
-      // Parse DOB - only need birth year for Monte Carlo
-      let birthYear;
+      // Parse DOB
+      let birthYear, birthMonth;
       if (dob.includes('-')) {
         const parts = dob.split('-');
-        birthYear = parseInt(parts[0]);
+        birthYear = parseInt(parts[0]); birthMonth = parseInt(parts[1]);
       } else {
         const parts = dob.split('/');
-        birthYear = parseInt(parts[2]);
+        birthMonth = parseInt(parts[0]); birthYear = parseInt(parts[2]);
       }
       const currentYear = new Date().getFullYear();
       const startAge = currentYear - birthYear;
 
       // Run each simulation
       const allRuns = [];
-      let survivedCount = { toLifeExp: 0, toLifeExpPlus5: 0, toLifeExpPlus10: 0, toAge100: 0 };
+      let survivedCount = { toLifeExp: 0, toLifeExpPlus5: 0, toLifeExpPlus10: 0 };
       const lifeExpAge = person1LifeExpectancy;
 
       for (let sim = 0; sim < NUM_SIMS; sim++) {
@@ -1202,25 +1087,16 @@ const BearingApp = () => {
           
           if (balance > 0) {
             let wd = 0;
-            if (tspScheduleEnabled) {
-              let monthlyAmt = tspPhase1Amount;
-              if (age >= tspPhase3Age) monthlyAmt = tspPhase3Amount;
-              else if (age >= tspPhase2Age) monthlyAmt = tspPhase2Amount;
-              wd = Math.min(monthlyAmt * 12, balance);
-            } else if (tspWithdrawalType === 'amount') {
+            if (tspWithdrawalType === 'amount') {
               let base = withdrawal;
               if (tspCoverTaxes) base = base / (1 - taxBracket / 100);
               wd = Math.min(base, balance);
             } else {
               wd = Math.min(balance * (tspWithdrawalPercent / 100), balance);
             }
-            // RMD override
-            const rmd = calculateRMD(balance, age);
-            if (rmd > wd) wd = Math.min(rmd, balance);
-
             balance = balance * (1 + annualReturn) - wd;
             balance = Math.max(0, balance);
-            if (!tspScheduleEnabled && tspWithdrawalType === 'amount' && rmd <= wd) withdrawal *= (1 + tspWithdrawalCola / 100);
+            if (tspWithdrawalType === 'amount') withdrawal *= (1 + tspWithdrawalCola / 100);
             if (balance === 0 && ranOutAt === null) ranOutAt = age;
           }
           runBalances.push(Math.round(balance));
@@ -1232,11 +1108,9 @@ const BearingApp = () => {
         const balAtLifeExp = runBalances[Math.min(lifeExpAge - startAge, projectionYears - 1)] ?? 0;
         const balAtLifeExpPlus5 = runBalances[Math.min(lifeExpAge - startAge + 5, projectionYears - 1)] ?? 0;
         const balAtLifeExpPlus10 = runBalances[Math.min(lifeExpAge - startAge + 10, projectionYears - 1)] ?? 0;
-        const balAt100 = runBalances[Math.min(100 - startAge, projectionYears - 1)] ?? 0;
         if (balAtLifeExp > 0) survivedCount.toLifeExp++;
         if (balAtLifeExpPlus5 > 0) survivedCount.toLifeExpPlus5++;
         if (balAtLifeExpPlus10 > 0) survivedCount.toLifeExpPlus10++;
-        if (balAt100 > 0) survivedCount.toAge100++;
       }
 
       // Build percentile bands for each year
@@ -1284,7 +1158,6 @@ const BearingApp = () => {
       const probabilityScore = Math.round(survivedCount.toLifeExp / NUM_SIMS * 100);
       const probabilityPlus5 = Math.round(survivedCount.toLifeExpPlus5 / NUM_SIMS * 100);
       const probabilityPlus10 = Math.round(survivedCount.toLifeExpPlus10 / NUM_SIMS * 100);
-      const probabilityTo100 = Math.round(survivedCount.toAge100 / NUM_SIMS * 100);
 
       // Median depletion age
       const ranOutAges = allRuns.map(r => r.ranOutAt).filter(a => a !== null);
@@ -1298,7 +1171,6 @@ const BearingApp = () => {
         probabilityScore,
         probabilityPlus5,
         probabilityPlus10,
-        probabilityTo100,
         medianDepletionAge,
         numSims: NUM_SIMS,
         stdDev,
@@ -1330,318 +1202,6 @@ const BearingApp = () => {
 
   const projections = hasCalculated ? calculateProjections() : [];
 
-  // ── ASSESSMENT WIZARD ────────────────────────────────────────────────────
-
-  // ── WIZARD QUESTION BANK ─────────────────────────────────────────────────
-  // Questions are conditional — shown only when relevant to the user's path.
-  // Path is determined by: alreadyRetired (yes/no) asked at question 2.
-  //
-  //  SHARED (everyone):
-  //    currentAge → alreadyRetired
-  //
-  //  RETIRED PATH (alreadyRetired = yes):
-  //    monthlyPensionActual → tspBalance → currentTspWithdrawal → ssActual
-  //    → otherIncome → monthlyExpenses → hasSpouse → spouseAge → topConcernRetired
-  //
-  //  PLANNING PATH (alreadyRetired = no):
-  //    retireAge → yearsService → high3 → ssEstimate
-  //    → tspBalance → otherSavings → monthlyExpenses → hasSpouse → spouseAge → topConcern
-
-  const WIZARD_QUESTIONS = [
-    // ── SHARED: asked of everyone ──────────────────────────────────────────
-    {
-      id: 'currentAge',
-      label: "How old are you today?",
-      type: 'number', placeholder: 'e.g. 62', min: 18, max: 85,
-    },
-    {
-      id: 'alreadyRetired',
-      label: "Are you already retired?",
-      type: 'yesno',
-    },
-
-    // ── RETIRED PATH ───────────────────────────────────────────────────────
-    {
-      id: 'monthlyPensionActual',
-      label: "What is your monthly pension (gross, from OPM)?",
-      type: 'currency', placeholder: 'e.g. 4800',
-      conditional: a => a.alreadyRetired === 'yes',
-    },
-    {
-      id: 'tspBalance',
-      label: "What is your current TSP or retirement account balance?",
-      type: 'currency', placeholder: 'e.g. 650000',
-      conditional: a => a.alreadyRetired === 'yes',
-    },
-    {
-      id: 'currentTspWithdrawal',
-      label: "How much are you currently withdrawing from TSP each month?",
-      type: 'currency', placeholder: 'e.g. 2500',
-      conditional: a => a.alreadyRetired === 'yes',
-    },
-    {
-      id: 'ssActual',
-      label: "Are you receiving Social Security? If so, how much per month? (Enter $0 if not yet)",
-      type: 'currency', placeholder: 'e.g. 2200',
-      conditional: a => a.alreadyRetired === 'yes',
-    },
-    {
-      id: 'otherIncome',
-      label: "Any other monthly income? (rental, part-time work, spouse income, etc.)",
-      type: 'currency', placeholder: 'Enter $0 if none',
-      conditional: a => a.alreadyRetired === 'yes',
-    },
-    {
-      id: 'monthlyExpenses',
-      label: "What are your actual monthly expenses?",
-      type: 'currency', placeholder: 'e.g. 5500',
-      conditional: a => a.alreadyRetired === 'yes',
-    },
-    {
-      id: 'hasSpouse',
-      label: "Do you have a spouse or partner to plan for?",
-      type: 'yesno',
-      conditional: a => a.alreadyRetired === 'yes',
-    },
-    {
-      id: 'spouseAge',
-      label: "How old is your spouse/partner?",
-      type: 'number', placeholder: 'e.g. 58', min: 18, max: 85,
-      conditional: a => a.alreadyRetired === 'yes' && a.hasSpouse === 'yes',
-    },
-    {
-      id: 'topConcernRetired',
-      label: "What's your biggest financial concern right now?",
-      type: 'choice',
-      choices: ['Running out of money', 'Healthcare costs', 'Market volatility', 'Leaving money to family', 'Managing RMDs'],
-      conditional: a => a.alreadyRetired === 'yes',
-    },
-
-    // ── PLANNING PATH ──────────────────────────────────────────────────────
-    {
-      id: 'retireAge',
-      label: "What age do you plan to retire?",
-      type: 'number', placeholder: 'e.g. 62', min: 50, max: 72,
-      conditional: a => a.alreadyRetired === 'no',
-    },
-    {
-      id: 'yearsService',
-      label: "How many years of federal service will you have at retirement?",
-      type: 'number', placeholder: 'e.g. 28', min: 0, max: 42,
-      conditional: a => a.alreadyRetired === 'no',
-    },
-    {
-      id: 'high3',
-      label: "What is your estimated High-3 average salary?",
-      type: 'currency', placeholder: 'e.g. 110000',
-      conditional: a => a.alreadyRetired === 'no',
-    },
-    {
-      id: 'ssEstimate',
-      label: "What is your estimated monthly Social Security benefit at full retirement age?",
-      type: 'currency', placeholder: 'e.g. 2200',
-      conditional: a => a.alreadyRetired === 'no',
-    },
-    {
-      id: 'tspBalancePlanning',
-      label: "What is your current TSP balance?",
-      type: 'currency', placeholder: 'e.g. 450000',
-      conditional: a => a.alreadyRetired === 'no',
-    },
-    {
-      id: 'otherSavings',
-      label: "Any other retirement savings? (IRA, 401k, brokerage)",
-      type: 'currency', placeholder: 'Enter $0 if none',
-      conditional: a => a.alreadyRetired === 'no',
-    },
-    {
-      id: 'monthlyExpensesPlanning',
-      label: "What do you estimate your monthly expenses will be in retirement?",
-      type: 'currency', placeholder: 'e.g. 5500',
-      conditional: a => a.alreadyRetired === 'no',
-    },
-    {
-      id: 'hasSpousePlanning',
-      label: "Do you have a spouse or partner to plan for?",
-      type: 'yesno',
-      conditional: a => a.alreadyRetired === 'no',
-    },
-    {
-      id: 'spouseAgePlanning',
-      label: "How old is your spouse/partner?",
-      type: 'number', placeholder: 'e.g. 51', min: 18, max: 85,
-      conditional: a => a.alreadyRetired === 'no' && a.hasSpousePlanning === 'yes',
-    },
-    {
-      id: 'topConcern',
-      label: "What's your biggest retirement concern?",
-      type: 'choice',
-      choices: ['Running out of money', 'Healthcare costs', 'Market volatility', 'Leaving money to family', 'Timing my retirement right'],
-      conditional: a => a.alreadyRetired === 'no',
-    },
-  ];
-
-  const getVisibleQuestions = (answers) => WIZARD_QUESTIONS.filter(q => !q.conditional || q.conditional(answers));
-
-  const runWizardAssessment = (answers) => {
-    const isRetired = answers.alreadyRetired === 'yes';
-    const age = parseInt(answers.currentAge) || 60;
-
-    // Pull answers from the correct path
-    const monthlyPension = isRetired
-      ? (parseFloat(answers.monthlyPensionActual) || 0)
-      : (() => {
-          const yos = parseInt(answers.yearsService) || 25;
-          const high3 = parseFloat(answers.high3) || 90000;
-          const ra = parseInt(answers.retireAge) || 62;
-          const mult = (ra >= 62 && yos >= 20) ? 0.011 : 0.01;
-          return (high3 * mult * yos) / 12;
-        })();
-
-    const tsp = isRetired
-      ? (parseFloat(answers.tspBalance) || 0)
-      : (parseFloat(answers.tspBalancePlanning) || 0);
-
-    const currentTspWithdrawal = isRetired ? (parseFloat(answers.currentTspWithdrawal) || 0) : 0;
-    const ssMonthly = isRetired ? (parseFloat(answers.ssActual) || 0) : (parseFloat(answers.ssEstimate) || 0);
-    const otherMonthly = parseFloat(answers.otherIncome) || 0;
-    const expenses = isRetired
-      ? (parseFloat(answers.monthlyExpenses) || 4000)
-      : (parseFloat(answers.monthlyExpensesPlanning) || 4000);
-    const hasSpouse = isRetired ? (answers.hasSpouse === 'yes') : (answers.hasSpousePlanning === 'yes');
-    const otherSavings = parseFloat(answers.otherSavings) || 0;
-    const totalSavings = tsp + otherSavings;
-    const retireAge = parseInt(answers.retireAge) || age;
-    const yos = parseInt(answers.yearsService) || 0;
-    const high3 = parseFloat(answers.high3) || 0;
-    const yearsToRetire = Math.max(0, retireAge - age);
-
-    // Life stage
-    let stage, stageLabel, stageColor;
-    if (isRetired && age >= 68) {
-      stage = 'inretirement'; stageLabel = 'In Retirement'; stageColor = '#CC99CC';
-    } else if (isRetired) {
-      stage = 'atretirement'; stageLabel = 'At Retirement'; stageColor = '#5cb85c';
-    } else if (age < 57 && yearsToRetire > 5) {
-      stage = 'accumulation'; stageLabel = 'Accumulation'; stageColor = '#5bc0de';
-    } else {
-      stage = 'preretirement'; stageLabel = 'Pre-Retirement'; stageColor = '#FF9933';
-    }
-
-    // Benchmarks
-    const tspBenchmarks = { accumulation: 280000, preretirement: 480000, atretirement: 550000, inretirement: 520000 };
-    const tspBenchmark = tspBenchmarks[stage];
-    const tspPct = tspBenchmark > 0 ? Math.round((tsp / tspBenchmark) * 100) : 0;
-
-    // Income
-    const totalMonthlyIncome = monthlyPension + ssMonthly + otherMonthly;
-    const tspContribution = isRetired ? currentTspWithdrawal : (totalSavings * 0.04 / 12);
-    const totalWithTSP = totalMonthlyIncome + tspContribution;
-    const preRetirementMonthly = high3 > 0 ? high3 / 12 : Math.max(totalWithTSP, 1);
-    const replacementRate = Math.round((totalWithTSP / preRetirementMonthly) * 100);
-    const coverageRatio = expenses > 0 ? totalWithTSP / expenses : 0;
-    const savingsNeeded = Math.max(0, expenses - totalMonthlyIncome) * 12;
-    const yearsRunway = (savingsNeeded > 0 && totalSavings > 0) ? Math.round(totalSavings / savingsNeeded) : 99;
-
-    // Scores
-    const scores = {
-      pension: Math.min(100, Math.round((monthlyPension / Math.max(expenses * 0.4, 1)) * 100)),
-      tsp: Math.min(100, tspPct),
-      replacement: Math.min(100, isRetired ? Math.round(coverageRatio * 100) : replacementRate),
-      coverage: Math.min(100, Math.round(coverageRatio * 100)),
-      runway: Math.min(100, Math.round((Math.min(yearsRunway, 30) / 30) * 100)),
-    };
-    const overallScore = Math.round(Object.values(scores).reduce((a,b) => a+b, 0) / Object.values(scores).length);
-
-    // Recommendations
-    const recommendations = [];
-    const topConcern = answers.topConcernRetired || answers.topConcern;
-
-    if (isRetired) {
-      if (coverageRatio < 1.0) recommendations.push({ priority: 'HIGH', section: 'TSP & Withdrawals', icon: '⚠️', text: `Your income covers ~${Math.round(coverageRatio * 100)}% of expenses. Verify your $${currentTspWithdrawal.toLocaleString()}/mo TSP withdrawal is sustainable long-term.` });
-      if (age >= 70 && age < 73) recommendations.push({ priority: 'HIGH', section: 'TSP & Withdrawals', icon: '📋', text: 'RMDs begin at 73. Plan your withdrawal strategy around that now — missing RMDs triggers a 25% IRS penalty.' });
-      if (age >= 73) recommendations.push({ priority: 'HIGH', section: 'TSP & Withdrawals', icon: '📋', text: 'You are in RMD territory. Use Bearing to verify your required minimum distributions each year.' });
-      if (ssMonthly === 0) recommendations.push({ priority: 'HIGH', section: 'Social Security', icon: '⏳', text: 'You have not started Social Security yet. Waiting to age 70 can mean 76% more per month than starting at 62.' });
-      if (hasSpouse) recommendations.push({ priority: 'MED', section: 'About You', icon: '👫', text: 'Configure Person 2 to model survivor income — what does your household look like if one of you passes first?' });
-      recommendations.push({ priority: 'MED', section: 'TSP & Withdrawals', icon: '📊', text: 'Run the Monte Carlo simulation to see your probability of not outliving your savings across 5,000 market scenarios.' });
-    } else {
-      if (stage === 'accumulation') {
-        if (tsp < tspBenchmark * 0.8) recommendations.push({ priority: 'HIGH', section: 'TSP & Withdrawals', icon: '📈', text: 'Your TSP is below average for your age. Max contributions are $23,000/year + $7,500 catch-up if you are 50+.' });
-        if (yos < 20) recommendations.push({ priority: 'MED', section: 'FERS Pension', icon: '🏛️', text: `You have ${yos} years of service. Reaching 20 unlocks the 1.1% multiplier at 62 — worth modeling the difference.` });
-        recommendations.push({ priority: 'MED', section: 'About You', icon: '📅', text: `You have ~${yearsToRetire} years to retirement. Use Bearing to model what working 1-2 extra years would mean.` });
-      }
-      if (stage === 'preretirement') {
-        if (retireAge < 62) recommendations.push({ priority: 'HIGH', section: 'FERS Pension', icon: '🌉', text: 'Retiring before 62 means the SRS bridge applies. Configure it in Bearing — it can add $1,000+/mo until age 62.' });
-        if (ssMonthly > 0) recommendations.push({ priority: 'HIGH', section: 'Social Security', icon: '⏱️', text: 'You are in the SS timing window. Waiting from 62 to 67 increases your benefit ~40%. Breakeven is typically age 78-80.' });
-        if (hasSpouse) recommendations.push({ priority: 'HIGH', section: 'FERS Pension', icon: '👫', text: 'The survivor benefit election at retirement is one of the most consequential decisions you will make. Model both 25% and 50% options.' });
-      }
-    }
-
-    const concernMap = {
-      'Running out of money': { section: 'TSP & Withdrawals', text: 'Run the Monte Carlo simulation — 5,000 scenarios, instant probability score.' },
-      'Healthcare costs': { section: 'Budget', text: 'Add a dedicated healthcare line to your budget. Federal retirees average $6,000+/year out of pocket.' },
-      'Market volatility': { section: 'TSP & Withdrawals', text: 'The phased withdrawal schedule lets you plan for reduced withdrawals in down years.' },
-      'Leaving money to family': { section: 'TSP & Withdrawals', text: 'The percentage withdrawal method preserves balance better than a fixed dollar amount.' },
-      'Timing my retirement right': { section: 'FERS Pension', text: 'Model 62 vs. 63 — the 1.1% multiplier plus one extra year can mean $200+/mo more for life.' },
-      'Managing RMDs': { section: 'TSP & Withdrawals', text: 'The RMD schedule in Bearing shows your required distributions by year and flags when RMDs override your planned withdrawal.' },
-    };
-    if (topConcern && concernMap[topConcern]) {
-      recommendations.push({ priority: 'HIGH', section: concernMap[topConcern].section, icon: '🎯', text: `Based on your top concern: ${concernMap[topConcern].text}` });
-    }
-
-    return {
-      isRetired, stage, stageLabel, stageColor,
-      age, retireAge, yos, high3, tsp, totalSavings,
-      monthlyPension, ssMonthly, otherMonthly, currentTspWithdrawal,
-      totalMonthlyIncome, totalWithTSP,
-      expenses, replacementRate, coverageRatio, yearsRunway,
-      tspBenchmark, tspPct, scores, overallScore,
-      recommendations: recommendations.slice(0, 5),
-      preRetirementMonthly, hasSpouse,
-    };
-  };
-
-  const applyWizardToApp = (r, answers) => {
-    const birthYear = new Date().getFullYear() - r.age;
-    const isoDate = `${birthYear}-06-15`;
-    setPerson1Dob(isoDate);
-    setDob(`06/15/${birthYear}`);
-    setAlreadyRetired(r.isRetired);
-    setFersAmount(Math.round(r.monthlyPension));
-    setSsAmount(r.ssMonthly);
-    setTspBalance(r.tsp);
-
-    if (r.isRetired) {
-      // Retired path — set actual withdrawal, mark as already retired
-      setTspWithdrawalAmount(r.currentTspWithdrawal);
-      setTspWithdrawalType('amount');
-      setMonthlyGrossPension(Math.round(r.monthlyPension));
-    } else {
-      // Planning path — set projection inputs
-      setRetirementAge(r.retireAge);
-      setYearsOfService(r.yos);
-      setHigh3Salary(r.high3);
-    }
-
-    // Spouse
-    const spouseAge = answers.spouseAge || answers.spouseAgePlanning;
-    if (r.hasSpouse && spouseAge) {
-      setPerson2Enabled(true);
-      const spouseBirthYear = new Date().getFullYear() - parseInt(spouseAge);
-      setPerson2Dob(`${spouseBirthYear}-06-15`);
-    }
-
-    // Budget — split expenses proportionally
-    const totalBudget = r.expenses;
-    setBudgetHousing(Math.round(totalBudget * 0.35));
-    setBudgetFood(Math.round(totalBudget * 0.12));
-    setBudgetTransportation(Math.round(totalBudget * 0.12));
-    setBudgetHealthcare(Math.round(totalBudget * 0.08));
-    setBudgetEntertainment(Math.round(totalBudget * 0.10));
-    setBudgetOther(Math.round(totalBudget * 0.23));
-    setHasCalculated(true);
-  };
-
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -1651,239 +1211,12 @@ const BearingApp = () => {
     }).format(amount);
   };
 
-  // ── WIZARD UI ─────────────────────────────────────────────────────────────
-  const renderWizard = () => {
-    const visibleQs = getVisibleQuestions(wizardAnswers);
-    const currentQ = visibleQs[wizardStep];
-    const isLastStep = wizardStep === visibleQs.length - 1;
-    const progress = Math.round(((wizardStep) / visibleQs.length) * 100);
-
-    if (wizardResults) {
-      const r = wizardResults;
-      const scoreColor = (s) => s >= 75 ? '#5cb85c' : s >= 50 ? '#FF9933' : '#d9534f';
-      const scoreLabel = (s) => s >= 75 ? 'Strong' : s >= 50 ? 'On Track' : 'Needs Attention';
-      const priorityColor = (p) => p === 'HIGH' ? '#d9534f' : '#FF9933';
-      return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 1000, overflowY: 'auto', padding: '20px' }}>
-          <div style={{ maxWidth: '720px', margin: '0 auto' }}>
-            {/* Stage badge */}
-            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-              <div style={{ display: 'inline-block', padding: '6px 20px', background: `${r.stageColor}22`, border: `1px solid ${r.stageColor}66`, borderRadius: '20px', color: r.stageColor, fontSize: '12px', fontWeight: '700', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '8px' }}>
-                {r.stageLabel} Stage
-              </div>
-              <h2 style={{ color: '#fff', fontSize: '26px', fontWeight: '700', margin: '0 0 6px 0' }}>Your Retirement Assessment</h2>
-              <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '14px', margin: 0 }}>Based on your answers — here's where you stand and what to focus on</p>
-            </div>
-
-            {/* Overall score */}
-            <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,153,51,0.3)', borderRadius: '12px', padding: '24px', marginBottom: '20px', textAlign: 'center' }}>
-              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '8px' }}>Overall Readiness Score</div>
-              <div style={{ fontSize: '64px', fontWeight: '800', color: scoreColor(r.overallScore), lineHeight: 1, marginBottom: '4px', textShadow: `0 0 30px ${scoreColor(r.overallScore)}66` }}>{r.overallScore}</div>
-              <div style={{ fontSize: '16px', color: scoreColor(r.overallScore), fontWeight: '600' }}>{scoreLabel(r.overallScore)}</div>
-            </div>
-
-            {/* 5 dimension scores */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px', marginBottom: '20px' }}>
-              {[
-                { key: 'pension', label: 'Pension', icon: '🏛️' },
-                { key: 'tsp', label: 'TSP vs Peers', icon: '📈' },
-                { key: 'replacement', label: 'Replace Rate', icon: '💱' },
-                { key: 'coverage', label: 'Expense Cover', icon: '🛡️' },
-                { key: 'runway', label: 'Runway', icon: '✈️' },
-              ].map(({ key, label, icon }) => {
-                const s = r.scores[key];
-                return (
-                  <div key={key} style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${scoreColor(s)}33`, borderRadius: '8px', padding: '12px 8px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '18px', marginBottom: '4px' }}>{icon}</div>
-                    <div style={{ fontSize: '22px', fontWeight: '700', color: scoreColor(s) }}>{s}</div>
-                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', marginTop: '2px' }}>{label}</div>
-                    <div style={{ fontSize: '10px', color: scoreColor(s), fontWeight: '600' }}>{scoreLabel(s)}</div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Key numbers */}
-            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '20px', marginBottom: '20px' }}>
-              <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '14px' }}>Your Numbers at a Glance</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                {(r.isRetired ? [
-                  { label: 'Monthly Pension (OPM)', value: `$${Math.round(r.monthlyPension).toLocaleString()}/mo`, note: 'Gross, as entered' },
-                  { label: 'Social Security', value: r.ssMonthly > 0 ? `$${r.ssMonthly.toLocaleString()}/mo` : 'Not started yet', note: r.ssMonthly > 0 ? 'Currently receiving' : 'Delaying = higher benefit' },
-                  { label: 'TSP Balance', value: `$${Math.round(r.tsp).toLocaleString()}`, note: `Drawing $${r.currentTspWithdrawal.toLocaleString()}/mo` },
-                  { label: 'Monthly Expenses', value: `$${Math.round(r.expenses).toLocaleString()}/mo`, note: 'Your actual expenses' },
-                  { label: 'Expense Coverage', value: `${Math.round(r.coverageRatio * 100)}%`, note: r.coverageRatio >= 1 ? 'Income covers expenses ✓' : 'TSP filling the gap' },
-                  { label: 'TSP Runway', value: r.yearsRunway >= 99 ? 'Fully covered' : `~${r.yearsRunway} yrs`, note: 'Before savings depleted' },
-                ] : [
-                  { label: 'Est. FERS Pension', value: `$${Math.round(r.monthlyPension).toLocaleString()}/mo`, note: `${r.yos} yrs × ${r.retireAge >= 62 ? '1.1' : '1.0'}% × High-3` },
-                  { label: 'Social Security', value: r.ssMonthly > 0 ? `$${r.ssMonthly.toLocaleString()}/mo` : 'Not entered', note: 'At full retirement age' },
-                  { label: 'Total Monthly Income', value: `$${Math.round(r.totalWithTSP).toLocaleString()}/mo`, note: 'Pension + SS + TSP (4%) + other' },
-                  { label: 'Monthly Expenses', value: `$${Math.round(r.expenses).toLocaleString()}/mo`, note: 'Your estimate' },
-                  { label: 'Income Replacement', value: `${r.replacementRate}%`, note: 'Target: 80%+' },
-                  { label: 'TSP vs Fed Average', value: `${r.tspPct}%`, note: `Avg at your stage: $${(r.tspBenchmark/1000).toFixed(0)}k` },
-                ]).map(({ label, value, note }) => (
-                  <div key={label} style={{ padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px' }}>
-                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', marginBottom: '3px' }}>{label}</div>
-                    <div style={{ fontSize: '16px', fontWeight: '700', color: '#fff' }}>{value}</div>
-                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', marginTop: '2px' }}>{note}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Recommendations */}
-            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,153,51,0.2)', borderRadius: '12px', padding: '20px', marginBottom: '24px' }}>
-              <div style={{ fontSize: '12px', color: '#FF9933', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '14px', fontWeight: '700' }}>🎯 Where to Focus</div>
-              {r.recommendations.map((rec, i) => (
-                <div key={i} style={{ display: 'flex', gap: '12px', marginBottom: i < r.recommendations.length - 1 ? '12px' : 0, padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', borderLeft: `3px solid ${priorityColor(rec.priority)}` }}>
-                  <div style={{ fontSize: '20px', flexShrink: 0 }}>{rec.icon}</div>
-                  <div>
-                    <div style={{ fontSize: '11px', color: priorityColor(rec.priority), fontWeight: '700', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '3px' }}>
-                      {rec.priority === 'HIGH' ? '⚡ High Priority' : '📌 Worth Reviewing'} — {rec.section}
-                    </div>
-                    <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)', lineHeight: '1.5' }}>{rec.text}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* CTA buttons */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <button
-                onClick={() => {
-                  applyWizardToApp(r, wizardAnswers);
-                  setShowWizard(false);
-                  setWizardResults(null);
-                  setWizardStep(0);
-                  setWizardAnswers({});
-                }}
-                style={{ padding: '16px', background: 'rgba(255,153,51,0.25)', border: '1px solid rgba(255,153,51,0.5)', color: '#fff', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '14px' }}
-              >
-                🚀 Load My Data & Explore
-              </button>
-              <button
-                onClick={() => {
-                  setShowWizard(false);
-                  setWizardResults(null);
-                  setWizardStep(0);
-                  setWizardAnswers({});
-                }}
-                style={{ padding: '16px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.7)', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' }}
-              >
-                Skip — Enter Data Manually
-              </button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    if (!currentQ) return null;
-    return (
-      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(8px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-        <div style={{ width: '100%', maxWidth: '520px' }}>
-          {/* Progress bar */}
-          <div style={{ marginBottom: '32px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', letterSpacing: '1px' }}>RETIREMENT ASSESSMENT</span>
-              <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)' }}>{wizardStep + 1} of {visibleQs.length}</span>
-            </div>
-            <div style={{ height: '3px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px' }}>
-              <div style={{ height: '100%', width: `${progress}%`, background: 'linear-gradient(90deg, #FF9933, #CC99CC)', borderRadius: '2px', transition: 'width 0.3s ease' }} />
-            </div>
-          </div>
-
-          {/* Question */}
-          <div style={{ marginBottom: '32px' }}>
-            <div style={{ fontSize: '11px', color: '#FF9933', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '12px', fontWeight: '600' }}>Question {wizardStep + 1}</div>
-            <h2 style={{ color: '#fff', fontSize: '22px', fontWeight: '600', lineHeight: '1.4', margin: 0 }}>{currentQ.label}</h2>
-          </div>
-
-          {/* Input */}
-          <div style={{ marginBottom: '32px' }}>
-            {(currentQ.type === 'number' || currentQ.type === 'currency') && (
-              <div style={{ position: 'relative' }}>
-                {currentQ.type === 'currency' && <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#FF9933', fontSize: '18px', fontWeight: '600' }}>$</span>}
-                <input
-                  key={currentQ.id}
-                  type="number"
-                  placeholder={currentQ.placeholder}
-                  value={wizardAnswers[currentQ.id] || ''}
-                  onChange={e => setWizardAnswers(prev => ({ ...prev, [currentQ.id]: e.target.value }))}
-                  onKeyDown={e => { if (e.key === 'Enter' && wizardAnswers[currentQ.id]) {
-                    if (isLastStep) { setWizardResults(runWizardAssessment(wizardAnswers)); }
-                    else { setWizardStep(s => s + 1); }
-                  }}}
-                  autoFocus
-                  style={{ width: '100%', boxSizing: 'border-box', padding: currentQ.type === 'currency' ? '18px 16px 18px 36px' : '18px 16px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,153,51,0.4)', borderRadius: '8px', color: '#fff', fontSize: '24px', fontWeight: '600', outline: 'none' }}
-                />
-              </div>
-            )}
-            {currentQ.type === 'yesno' && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                {['yes', 'no'].map(v => (
-                  <button key={v} onClick={() => {
-                    const newAnswers = { ...wizardAnswers, [currentQ.id]: v };
-                    setWizardAnswers(newAnswers);
-                    const nextVis = getVisibleQuestions(newAnswers);
-                    if (wizardStep >= nextVis.length - 1) { setWizardResults(runWizardAssessment(newAnswers)); }
-                    else { setWizardStep(s => s + 1); }
-                  }} style={{ padding: '18px', background: wizardAnswers[currentQ.id] === v ? 'rgba(255,153,51,0.25)' : 'rgba(255,255,255,0.05)', border: `1px solid ${wizardAnswers[currentQ.id] === v ? 'rgba(255,153,51,0.6)' : 'rgba(255,255,255,0.15)'}`, borderRadius: '8px', color: '#fff', fontSize: '16px', fontWeight: '600', cursor: 'pointer', textTransform: 'capitalize' }}>
-                    {v === 'yes' ? '✓ Yes' : '✕ No'}
-                  </button>
-                ))}
-              </div>
-            )}
-            {currentQ.type === 'choice' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {currentQ.choices.map(c => (
-                  <button key={c} onClick={() => {
-                    const newAnswers = { ...wizardAnswers, [currentQ.id]: c };
-                    setWizardAnswers(newAnswers);
-                    const nextVis = getVisibleQuestions(newAnswers);
-                    if (wizardStep >= nextVis.length - 1) { setWizardResults(runWizardAssessment(newAnswers)); }
-                    else { setWizardStep(s => s + 1); }
-                  }} style={{ padding: '14px 18px', background: wizardAnswers[currentQ.id] === c ? 'rgba(255,153,51,0.2)' : 'rgba(255,255,255,0.04)', border: `1px solid ${wizardAnswers[currentQ.id] === c ? 'rgba(255,153,51,0.5)' : 'rgba(255,255,255,0.12)'}`, borderRadius: '8px', color: '#fff', fontSize: '14px', cursor: 'pointer', textAlign: 'left' }}>
-                    {c}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Nav buttons */}
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            {wizardStep > 0 && (
-              <button onClick={() => setWizardStep(s => s - 1)} style={{ padding: '12px 20px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}>← Back</button>
-            )}
-            <div style={{ flex: 1 }} />
-            {(currentQ.type === 'number' || currentQ.type === 'currency') && (
-              <button
-                onClick={() => {
-                  if (!wizardAnswers[currentQ.id] && wizardAnswers[currentQ.id] !== 0) return;
-                  if (isLastStep) { setWizardResults(runWizardAssessment(wizardAnswers)); }
-                  else { setWizardStep(s => s + 1); }
-                }}
-                disabled={!wizardAnswers[currentQ.id] && wizardAnswers[currentQ.id] !== 0}
-                style={{ padding: '14px 28px', background: 'rgba(255,153,51,0.25)', border: '1px solid rgba(255,153,51,0.5)', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontWeight: '700', fontSize: '14px', opacity: (!wizardAnswers[currentQ.id] && wizardAnswers[currentQ.id] !== 0) ? 0.4 : 1 }}
-              >
-                {isLastStep ? 'See My Assessment →' : 'Next →'}
-              </button>
-            )}
-            <button onClick={() => { setShowWizard(false); setWizardStep(0); setWizardAnswers({}); }} style={{ padding: '12px 16px', background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', fontSize: '12px' }}>Skip</button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div style={{ 
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', 
       background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%)',
       minHeight: '100vh'
     }}>
-      {showWizard && renderWizard()}
       {/* Header */}
       <div style={{
         background: 'rgba(255, 255, 255, 0.05)',
@@ -1916,7 +1249,7 @@ const BearingApp = () => {
               FINANCIAL NAVIGATION SYSTEM
             </div>
             <div style={{ color: '#999', fontSize: '10px', marginTop: '4px', fontStyle: 'italic' }}>
-              v3.7.00 — Full Save + Assessment Wizard
+              v3.4.0 — Retirement Income Structure
             </div>
           </div>
         </div>
@@ -1976,28 +1309,6 @@ const BearingApp = () => {
             </div>
           </div>
         </div>
-        {/* Assessment wizard launch button */}
-        <button
-          onClick={() => { setShowWizard(true); setWizardStep(0); setWizardAnswers({}); setWizardResults(null); }}
-          style={{
-            padding: '10px 18px',
-            background: 'rgba(204,153,204,0.15)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(204,153,204,0.4)',
-            borderRadius: '8px',
-            color: '#CC99CC',
-            cursor: 'pointer',
-            fontWeight: '600',
-            fontSize: '13px',
-            letterSpacing: '0.5px',
-            transition: 'all 0.2s ease',
-            whiteSpace: 'nowrap'
-          }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(204,153,204,0.25)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(204,153,204,0.15)'; e.currentTarget.style.transform = 'translateY(0)'; }}
-        >
-          📋 Take Assessment
-        </button>
       </div>
 
       <div style={{ display: 'flex', minHeight: 'calc(100vh - 94px)' }}>
@@ -2013,230 +1324,6 @@ const BearingApp = () => {
           boxShadow: '4px 0 24px rgba(0, 0, 0, 0.3)'
         }}>
           
-          {/* ABOUT YOU SECTION - Standalone at top */}
-          <div style={{ marginBottom: '15px' }}>
-            <div 
-              onClick={() => toggleSection('aboutYou')}
-              style={{
-                background: openSections.aboutYou 
-                  ? 'rgba(204, 153, 204, 0.25)'
-                  : 'rgba(204, 153, 204, 0.12)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
-                border: '1px solid rgba(204, 153, 204, 0.4)',
-                padding: '14px 16px',
-                cursor: 'pointer',
-                color: '#ffffff',
-                fontWeight: '600',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                borderRadius: '8px',
-                fontSize: '15px',
-                boxShadow: '0 4px 15px rgba(204, 153, 204, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15)',
-                transition: 'all 0.3s ease',
-                letterSpacing: '0.3px'
-              }}
-              onMouseEnter={(e) => {
-                if (!openSections.aboutYou) {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 6px 25px rgba(204, 153, 204, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 15px rgba(204, 153, 204, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15)';
-              }}
-            >
-              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '18px' }}>👤</span>
-                About You
-              </span>
-              <span style={{ fontSize: '12px' }}>{openSections.aboutYou ? '▲' : '▼'}</span>
-            </div>
-            {openSections.aboutYou && (
-              <div style={{ background: 'rgba(255, 255, 255, 0.03)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', padding: '20px', border: '1px solid rgba(204, 153, 204, 0.3)', borderTop: 'none', borderRadius: '0 0 8px 8px' }}>
-                
-                <div style={{ marginBottom: '20px', padding: '15px', background: 'rgba(204, 153, 204, 0.1)', borderRadius: '6px', border: '1px solid rgba(204, 153, 204, 0.3)' }}>
-                  <h4 style={{ margin: '0 0 15px 0', color: '#CC99CC', fontSize: '14px', fontWeight: '600' }}>Person 1</h4>
-                  
-                  <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', fontWeight: '500' }}>
-                    Date of Birth
-                  </label>
-                  <input
-                    type="date"
-                    value={person1Dob}
-                    onChange={(e) => setPerson1Dob(e.target.value)}
-                    style={{
-                      width: '100%', boxSizing: 'border-box',
-                      padding: '10px',
-                      background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      marginBottom: '15px'
-                    }}
-                  />
-
-                  <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', fontWeight: '500' }}>
-                    Sex
-                  </label>
-                  <select
-                    value={person1Sex}
-                    onChange={(e) => setPerson1Sex(e.target.value)}
-                    style={{
-                      width: '100%', boxSizing: 'border-box',
-                      padding: '10px',
-                      background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      marginBottom: '15px'
-                    }}
-                  >
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                  </select>
-
-                  <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', fontWeight: '500' }}>
-                    Planned Retirement Age
-                  </label>
-                  <input
-                    type="number"
-                    value={retirementAge}
-                    onChange={(e) => setRetirementAge(Number(e.target.value))}
-                    style={{
-                      width: '100%', boxSizing: 'border-box',
-                      padding: '10px',
-                      background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      marginBottom: '15px'
-                    }}
-                  />
-
-                  <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', fontWeight: '500' }}>
-                    Life Expectancy
-                  </label>
-                  <input
-                    type="number"
-                    value={person1LifeExpectancy}
-                    onChange={(e) => setPerson1LifeExpectancy(Number(e.target.value))}
-                    style={{
-                      width: '100%', boxSizing: 'border-box',
-                      padding: '10px',
-                      background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px',
-                      fontSize: '14px'
-                    }}
-                  />
-                  <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.5)', marginTop: '5px', fontStyle: 'italic' }}>
-                    Based on actuarial tables. Adjust if needed.
-                  </div>
-                </div>
-
-                {/* Add Spouse/Partner Button */}
-                {!person2Enabled ? (
-                  <button
-                    onClick={() => setPerson2Enabled(true)}
-                    style={{
-                      width: '100%', boxSizing: 'border-box',
-                      padding: '12px',
-                      background: 'rgba(204, 153, 204, 0.15)',
-                      backdropFilter: 'blur(20px)',
-                      color: '#ffffff',
-                      border: '1px solid rgba(204, 153, 204, 0.3)',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontWeight: '600',
-                      fontSize: '14px'
-                    }}
-                  >
-                    👥 Add Spouse/Partner
-                  </button>
-                ) : (
-                  <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(204, 153, 204, 0.1)', borderRadius: '6px', border: '1px solid rgba(204, 153, 204, 0.3)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                      <h4 style={{ margin: '0', color: '#CC99CC', fontSize: '14px', fontWeight: '600' }}>Person 2 (Spouse/Partner)</h4>
-                      <button
-                        onClick={() => setPerson2Enabled(false)}
-                        style={{
-                          padding: '4px 12px',
-                          background: 'rgba(217, 83, 79, 0.15)',
-                          color: '#d9534f',
-                          border: '1px solid rgba(217, 83, 79, 0.3)',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          fontSize: '12px'
-                        }}
-                      >
-                        Remove
-                      </button>
-                    </div>
-
-                    <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', fontWeight: '500' }}>
-                      Date of Birth
-                    </label>
-                    <input
-                      type="date"
-                      value={person2Dob}
-                      onChange={(e) => setPerson2Dob(e.target.value)}
-                      style={{
-                        width: '100%', boxSizing: 'border-box',
-                        padding: '10px',
-                        background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
-                        border: '1px solid #ddd',
-                        borderRadius: '4px',
-                        fontSize: '14px',
-                        marginBottom: '15px'
-                      }}
-                    />
-
-                    <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', fontWeight: '500' }}>
-                      Sex
-                    </label>
-                    <select
-                      value={person2Sex}
-                      onChange={(e) => setPerson2Sex(e.target.value)}
-                      style={{
-                        width: '100%', boxSizing: 'border-box',
-                        padding: '10px',
-                        background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
-                        border: '1px solid #ddd',
-                        borderRadius: '4px',
-                        fontSize: '14px',
-                        marginBottom: '15px'
-                      }}
-                    >
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
-                    </select>
-
-                    <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', fontWeight: '500' }}>
-                      Life Expectancy
-                    </label>
-                    <input
-                      type="number"
-                      value={person2LifeExpectancy}
-                      onChange={(e) => setPerson2LifeExpectancy(Number(e.target.value))}
-                      style={{
-                        width: '100%', boxSizing: 'border-box',
-                        padding: '10px',
-                        background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
-                        border: '1px solid #ddd',
-                        borderRadius: '4px',
-                        fontSize: '14px'
-                      }}
-                    />
-                  </div>
-                )}
-
-              </div>
-            )}
-          </div>
-
           {/* INCOME & ASSETS GROUP */}
           <div style={{ marginBottom: '12px' }}>
             <div
@@ -2280,7 +1367,7 @@ const BearingApp = () => {
                     padding: '2px 8px', 
                     borderRadius: '10px',
                     fontWeight: '600'
-                  }}>5</span>
+                  }}>3</span>
                   <span style={{ fontSize: '12px' }}>{openGroups.incomeAssets ? '▲' : '▼'}</span>
                 </div>
               </div>
@@ -2941,12 +2028,12 @@ const BearingApp = () => {
             )}
           </div>
 
-          {/* FERS Pension & SRS Section */}
+          {/* Retirement Income Section (was Retirement Accounts) */}
           <div style={{ marginBottom: '15px' }}>
             <div 
-              onClick={() => toggleSection('fersPension')}
+              onClick={() => toggleSection('accounts')}
               style={{
-                background: openSections.fersPension
+                background: openSections.accounts
                   ? 'rgba(255, 153, 51, 0.25)'
                   : 'rgba(255, 153, 51, 0.12)',
                 backdropFilter: 'blur(20px)',
@@ -2966,254 +2053,7 @@ const BearingApp = () => {
                 letterSpacing: '0.3px'
               }}
               onMouseEnter={(e) => {
-                if (!openSections.fersPension) {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 6px 25px rgba(255, 153, 51, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 15px rgba(255, 153, 51, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15)';
-              }}
-            >
-              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '18px' }}>💰</span>
-                FERS Pension & SRS
-              </span>
-              <span style={{ fontSize: '12px' }}>{openSections.fersPension ? '▲' : '▼'}</span>
-            </div>
-            {openSections.fersPension && (
-              <div style={{ background: 'rgba(255, 255, 255, 0.03)', backdropFilter: 'blur(10px)', padding: '20px', border: '1px solid rgba(255, 153, 51, 0.3)', borderTop: 'none', borderRadius: '0 0 8px 8px' }}>
-                
-                {/* Already Retired Toggle */}
-                <div style={{ marginBottom: '20px', padding: '12px', background: 'rgba(255, 153, 51, 0.1)', borderRadius: '6px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={alreadyRetired}
-                      onChange={(e) => setAlreadyRetired(e.target.checked)}
-                      style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                    />
-                    <span style={{ color: '#fff', fontWeight: '600', fontSize: '14px' }}>
-                      ✅ Already Retired / Drawing Pension
-                    </span>
-                  </label>
-                </div>
-
-                {alreadyRetired ? (
-                  /* IF ALREADY RETIRED - Enter from OPM statement */
-                  <div>
-                    <div style={{ marginBottom: '15px', padding: '10px', background: 'rgba(91, 192, 222, 0.1)', borderRadius: '4px', fontSize: '12px', color: 'rgba(255,255,255,0.7)' }}>
-                      💡 Enter amounts from your monthly OPM statement
-                    </div>
-
-                    <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', fontWeight: '500' }}>
-                      Monthly Gross Pension
-                    </label>
-                    <div style={{ position: 'relative', marginBottom: '15px' }}>
-                      <span style={{ position: 'absolute', left: '12px', top: '11px', color: '#999', fontSize: '14px' }}>$</span>
-                      <input
-                        type="number"
-                        value={monthlyGrossPension}
-                        onChange={(e) => setMonthlyGrossPension(Number(e.target.value))}
-                        style={{
-                          width: '100%', boxSizing: 'border-box',
-                          padding: '10px 10px 10px 24px',
-                          background: 'rgba(255, 255, 255, 0.05)', color: 'rgba(255, 255, 255, 0.9)',
-                          border: '1px solid #ddd',
-                          borderRadius: '4px',
-                          fontSize: '14px'
-                        }}
-                      />
-                    </div>
-
-                    <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', fontWeight: '500' }}>
-                      Monthly FEHB (Health Insurance)
-                    </label>
-                    <div style={{ position: 'relative', marginBottom: '15px' }}>
-                      <span style={{ position: 'absolute', left: '12px', top: '11px', color: '#999', fontSize: '14px' }}>$</span>
-                      <input
-                        type="number"
-                        value={monthlyFEHB}
-                        onChange={(e) => setMonthlyFEHB(Number(e.target.value))}
-                        style={{
-                          width: '100%', boxSizing: 'border-box',
-                          padding: '10px 10px 10px 24px',
-                          background: 'rgba(255, 255, 255, 0.05)', color: 'rgba(255, 255, 255, 0.9)',
-                          border: '1px solid #ddd',
-                          borderRadius: '4px',
-                          fontSize: '14px'
-                        }}
-                      />
-                    </div>
-
-                    <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', fontWeight: '500' }}>
-                      Monthly FEGLI (Life Insurance)
-                    </label>
-                    <div style={{ position: 'relative', marginBottom: '15px' }}>
-                      <span style={{ position: 'absolute', left: '12px', top: '11px', color: '#999', fontSize: '14px' }}>$</span>
-                      <input
-                        type="number"
-                        value={monthlyFEGLI}
-                        onChange={(e) => setMonthlyFEGLI(Number(e.target.value))}
-                        style={{
-                          width: '100%', boxSizing: 'border-box',
-                          padding: '10px 10px 10px 24px',
-                          background: 'rgba(255, 255, 255, 0.05)', color: 'rgba(255, 255, 255, 0.9)',
-                          border: '1px solid #ddd',
-                          borderRadius: '4px',
-                          fontSize: '14px'
-                        }}
-                      />
-                    </div>
-
-                    <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', fontWeight: '500' }}>
-                      Other Monthly Deductions
-                    </label>
-                    <div style={{ position: 'relative', marginBottom: '15px' }}>
-                      <span style={{ position: 'absolute', left: '12px', top: '11px', color: '#999', fontSize: '14px' }}>$</span>
-                      <input
-                        type="number"
-                        value={monthlyOtherDeductions}
-                        onChange={(e) => setMonthlyOtherDeductions(Number(e.target.value))}
-                        style={{
-                          width: '100%', boxSizing: 'border-box',
-                          padding: '10px 10px 10px 24px',
-                          background: 'rgba(255, 255, 255, 0.05)', color: 'rgba(255, 255, 255, 0.9)',
-                          border: '1px solid #ddd',
-                          borderRadius: '4px',
-                          fontSize: '14px'
-                        }}
-                      />
-                    </div>
-
-                    <div style={{ padding: '12px', background: 'rgba(92, 184, 92, 0.1)', borderRadius: '4px', marginTop: '15px' }}>
-                      <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', marginBottom: '5px' }}>Net Monthly Pension:</div>
-                      <div style={{ fontSize: '20px', color: '#5cb85c', fontWeight: '700' }}>
-                        ${(monthlyGrossPension - monthlyFEHB - monthlyFEGLI - monthlyOtherDeductions).toLocaleString()}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  /* IF NOT RETIRED - Calculate from High-3 */
-                  <div>
-                    <div style={{ marginBottom: '15px', padding: '10px', background: 'rgba(91, 192, 222, 0.1)', borderRadius: '4px', fontSize: '12px', color: 'rgba(255,255,255,0.7)' }}>
-                      💡 We'll calculate your estimated pension from your High-3 salary
-                    </div>
-
-                    <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', fontWeight: '500' }}>
-                      High-3 Average Salary
-                    </label>
-                    <div style={{ position: 'relative', marginBottom: '15px' }}>
-                      <span style={{ position: 'absolute', left: '12px', top: '11px', color: '#999', fontSize: '14px' }}>$</span>
-                      <input
-                        type="number"
-                        value={high3Salary}
-                        onChange={(e) => setHigh3Salary(Number(e.target.value))}
-                        style={{
-                          width: '100%', boxSizing: 'border-box',
-                          padding: '10px 10px 10px 24px',
-                          background: 'rgba(255, 255, 255, 0.05)', color: 'rgba(255, 255, 255, 0.9)',
-                          border: '1px solid #ddd',
-                          borderRadius: '4px',
-                          fontSize: '14px'
-                        }}
-                      />
-                    </div>
-
-                    <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', fontWeight: '500' }}>
-                      Years of Service
-                    </label>
-                    <input
-                      type="number"
-                      value={yearsOfService}
-                      onChange={(e) => setYearsOfService(Number(e.target.value))}
-                      style={{
-                        width: '100%', boxSizing: 'border-box',
-                        padding: '10px',
-                        background: 'rgba(255, 255, 255, 0.05)', color: 'rgba(255, 255, 255, 0.9)',
-                        border: '1px solid #ddd',
-                        borderRadius: '4px',
-                        fontSize: '14px',
-                        marginBottom: '15px'
-                      }}
-                    />
-
-                    <div style={{ padding: '12px', background: 'rgba(92, 184, 92, 0.1)', borderRadius: '4px' }}>
-                      <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', marginBottom: '5px' }}>Estimated Annual Pension (1% x years x High-3):</div>
-                      <div style={{ fontSize: '20px', color: '#5cb85c', fontWeight: '700' }}>
-                        ${((high3Salary * yearsOfService * 0.01)).toLocaleString()}
-                      </div>
-                      <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.7)', marginTop: '5px' }}>
-                        ${((high3Salary * yearsOfService * 0.01) / 12).toFixed(0).toLocaleString()}/month
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* SRS Section */}
-                <div style={{ marginTop: '25px', paddingTop: '20px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-                  <h4 style={{ margin: '0 0 15px 0', color: '#FF9933', fontSize: '14px', fontWeight: '600' }}>
-                    Special Retirement Supplement (SRS)
-                  </h4>
-                  <div style={{ marginBottom: '10px', padding: '8px', background: 'rgba(91, 192, 222, 0.1)', borderRadius: '4px', fontSize: '11px', color: 'rgba(255,255,255,0.6)' }}>
-                    For those who retire before age 62 under special provisions
-                  </div>
-
-                  <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', fontWeight: '500' }}>
-                    Monthly SRS Amount
-                  </label>
-                  <div style={{ position: 'relative' }}>
-                    <span style={{ position: 'absolute', left: '12px', top: '11px', color: '#999', fontSize: '14px' }}>$</span>
-                    <input
-                      type="number"
-                      value={srsAmount}
-                      onChange={(e) => setSrsAmount(Number(e.target.value))}
-                      style={{
-                        width: '100%', boxSizing: 'border-box',
-                        padding: '10px 10px 10px 24px',
-                        background: 'rgba(255, 255, 255, 0.05)', color: 'rgba(255, 255, 255, 0.9)',
-                        border: '1px solid #ddd',
-                        borderRadius: '4px',
-                        fontSize: '14px'
-                      }}
-                    />
-                  </div>
-                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '5px', fontStyle: 'italic' }}>
-                    SRS ends when you turn 62 and claim Social Security
-                  </div>
-                </div>
-
-              </div>
-            )}
-          </div>
-
-          {/* Social Security Section */}
-          <div style={{ marginBottom: '15px' }}>
-            <div 
-              onClick={() => toggleSection('socialSecurity')}
-              style={{
-                background: openSections.socialSecurity
-                  ? 'rgba(255, 153, 51, 0.25)'
-                  : 'rgba(255, 153, 51, 0.12)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255, 153, 51, 0.4)',
-                padding: '14px 16px',
-                cursor: 'pointer',
-                color: '#ffffff',
-                fontWeight: '600',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                borderRadius: '8px',
-                fontSize: '15px',
-                boxShadow: '0 4px 15px rgba(255, 153, 51, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15)',
-                transition: 'all 0.3s ease',
-                letterSpacing: '0.3px'
-              }}
-              onMouseEnter={(e) => {
-                if (!openSections.socialSecurity) {
+                if (!openSections.accounts) {
                   e.currentTarget.style.transform = 'translateY(-2px)';
                   e.currentTarget.style.boxShadow = '0 6px 25px rgba(255, 153, 51, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2)';
                 }
@@ -3225,153 +2065,14 @@ const BearingApp = () => {
             >
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '18px' }}>🏦</span>
-                Social Security
+                Retirement Income
               </span>
-              <span style={{ fontSize: '12px' }}>{openSections.socialSecurity ? '▲' : '▼'}</span>
+              <span style={{ fontSize: '12px' }}>{openSections.accounts ? '▲' : '▼'}</span>
             </div>
-            {openSections.socialSecurity && (
-              <div style={{ background: 'rgba(255, 255, 255, 0.03)', backdropFilter: 'blur(10px)', padding: '20px', border: '1px solid rgba(255, 153, 51, 0.3)', borderTop: 'none', borderRadius: '0 0 8px 8px' }}>
-                
-                <div style={{ marginBottom: '20px', padding: '15px', background: 'rgba(255, 153, 51, 0.1)', borderRadius: '6px' }}>
-                  <h4 style={{ margin: '0 0 15px 0', color: '#FF9933', fontSize: '14px', fontWeight: '600' }}>Person 1</h4>
-                  
-                  <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', fontWeight: '500' }}>
-                    Monthly Social Security Benefit
-                  </label>
-                  <div style={{ position: 'relative', marginBottom: '15px' }}>
-                    <span style={{ position: 'absolute', left: '12px', top: '11px', color: '#999', fontSize: '14px' }}>$</span>
-                    <input
-                      type="number"
-                      value={ssAmount}
-                      onChange={(e) => setSsAmount(Number(e.target.value))}
-                      style={{
-                        width: '100%', boxSizing: 'border-box',
-                        padding: '10px 10px 10px 24px',
-                        background: 'rgba(255, 255, 255, 0.05)', color: 'rgba(255, 255, 255, 0.9)',
-                        border: '1px solid #ddd',
-                        borderRadius: '4px',
-                        fontSize: '14px'
-                      }}
-                    />
-                  </div>
-
-                  <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', fontWeight: '500' }}>
-                    Claiming Age
-                  </label>
-                  <input
-                    type="number"
-                    min="62"
-                    max="70"
-                    value={ssStartAge}
-                    onChange={(e) => setSsStartAge(Number(e.target.value))}
-                    style={{
-                      width: '100%', boxSizing: 'border-box',
-                      padding: '10px',
-                      background: 'rgba(255, 255, 255, 0.05)', color: 'rgba(255, 255, 255, 0.9)',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px',
-                      fontSize: '14px'
-                    }}
-                  />
-                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '5px', fontStyle: 'italic' }}>
-                    Age 62-70. Claiming later increases benefit by ~8%/year
-                  </div>
-                </div>
-
-                {person2Enabled && (
-                  <div style={{ padding: '15px', background: 'rgba(255, 153, 51, 0.1)', borderRadius: '6px' }}>
-                    <h4 style={{ margin: '0 0 15px 0', color: '#FF9933', fontSize: '14px', fontWeight: '600' }}>Person 2</h4>
-                    
-                    <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', fontWeight: '500' }}>
-                      Monthly Social Security Benefit
-                    </label>
-                    <div style={{ position: 'relative', marginBottom: '15px' }}>
-                      <span style={{ position: 'absolute', left: '12px', top: '11px', color: '#999', fontSize: '14px' }}>$</span>
-                      <input
-                        type="number"
-                        value={person2SsAmount}
-                        onChange={(e) => setPerson2SsAmount(Number(e.target.value))}
-                        style={{
-                          width: '100%', boxSizing: 'border-box',
-                          padding: '10px 10px 10px 24px',
-                          background: 'rgba(255, 255, 255, 0.05)', color: 'rgba(255, 255, 255, 0.9)',
-                          border: '1px solid #ddd',
-                          borderRadius: '4px',
-                          fontSize: '14px'
-                        }}
-                      />
-                    </div>
-
-                    <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', fontWeight: '500' }}>
-                      Claiming Age
-                    </label>
-                    <input
-                      type="number"
-                      min="62"
-                      max="70"
-                      value={person2SsStartAge}
-                      onChange={(e) => setPerson2SsStartAge(Number(e.target.value))}
-                      style={{
-                        width: '100%', boxSizing: 'border-box',
-                        padding: '10px',
-                        background: 'rgba(255, 255, 255, 0.05)', color: 'rgba(255, 255, 255, 0.9)',
-                        border: '1px solid #ddd',
-                        borderRadius: '4px',
-                        fontSize: '14px'
-                      }}
-                    />
-                  </div>
-                )}
-
-              </div>
-            )}
-          </div>
-
-          {/* TSP & Withdrawals Section */}
-          <div style={{ marginBottom: '15px' }}>
-            <div 
-              onClick={() => toggleSection('tspWithdrawals')}
-              style={{
-                background: openSections.tspWithdrawals
-                  ? 'rgba(255, 153, 51, 0.25)'
-                  : 'rgba(255, 153, 51, 0.12)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255, 153, 51, 0.4)',
-                padding: '14px 16px',
-                cursor: 'pointer',
-                color: '#ffffff',
-                fontWeight: '600',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                borderRadius: '8px',
-                fontSize: '15px',
-                boxShadow: '0 4px 15px rgba(255, 153, 51, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15)',
-                transition: 'all 0.3s ease',
-                letterSpacing: '0.3px'
-              }}
-              onMouseEnter={(e) => {
-                if (!openSections.tspWithdrawals) {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 6px 25px rgba(255, 153, 51, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 15px rgba(255, 153, 51, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15)';
-              }}
-            >
-              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '18px' }}>💵</span>
-                TSP & Withdrawals
-              </span>
-              <span style={{ fontSize: '12px' }}>{openSections.tspWithdrawals ? '▲' : '▼'}</span>
-            </div>
-            {openSections.tspWithdrawals && (
-              <div style={{ background: 'rgba(255, 255, 255, 0.03)', backdropFilter: 'blur(10px)', padding: '20px', border: '1px solid rgba(255, 153, 51, 0.3)', borderTop: 'none', borderRadius: '0 0 8px 8px' }}>
+            {openSections.accounts && (
+              <div style={{ background: 'rgba(255, 255, 255, 0.03)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', padding: '20px', border: '1px solid #e0e0e0', borderTop: 'none' }}>
                 <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', fontWeight: '500' }}>
-                  Current TSP Balance
+                  TSP Balance
                 </label>
                 <div style={{ position: 'relative', marginBottom: '20px' }}>
                   <span style={{ position: 'absolute', left: '12px', top: '11px', color: '#999', fontSize: '14px' }}>$</span>
@@ -3382,7 +2083,7 @@ const BearingApp = () => {
                     style={{
                       width: '100%', boxSizing: 'border-box',
                       padding: '10px 10px 10px 24px',
-                      background: 'rgba(255, 255, 255, 0.05)', color: 'rgba(255, 255, 255, 0.9)',
+                      background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
                       border: '1px solid #ddd',
                       borderRadius: '4px',
                       fontSize: '14px'
@@ -3391,7 +2092,7 @@ const BearingApp = () => {
                 </div>
 
                 <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', fontWeight: '500' }}>
-                  Expected Annual Return (%)
+                  Expected Return (%)
                 </label>
                 <input
                   type="number"
@@ -3401,7 +2102,7 @@ const BearingApp = () => {
                   style={{
                     width: '100%', boxSizing: 'border-box',
                     padding: '10px',
-                    background: 'rgba(255, 255, 255, 0.05)', color: 'rgba(255, 255, 255, 0.9)',
+                    background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
                     border: '1px solid #ddd',
                     borderRadius: '4px',
                     fontSize: '14px',
@@ -3418,39 +2119,39 @@ const BearingApp = () => {
                     style={{
                       flex: 1,
                       padding: '10px',
-                      background: tspWithdrawalType === 'amount' ? 'rgba(255, 153, 51, 0.3)' : 'rgba(255, 255, 255, 0.05)',
-                      color: '#ffffff',
-                      border: tspWithdrawalType === 'amount' ? '1px solid rgba(255, 153, 51, 0.5)' : '1px solid #ddd',
+                      backgroundColor: tspWithdrawalType === 'amount' ? '#FF9933' : '#e0e0e0',
+                      color: tspWithdrawalType === 'amount' ? '#ffffff' : '#666',
+                      border: 'none',
                       borderRadius: '4px',
                       cursor: 'pointer',
-                      fontWeight: tspWithdrawalType === 'amount' ? '600' : '400',
-                      fontSize: '13px'
+                      fontWeight: '600',
+                      fontSize: '14px'
                     }}
                   >
-                    Fixed Amount
+                    Amount
                   </button>
                   <button
                     onClick={() => setTspWithdrawalType('percent')}
                     style={{
                       flex: 1,
                       padding: '10px',
-                      background: tspWithdrawalType === 'percent' ? 'rgba(255, 153, 51, 0.3)' : 'rgba(255, 255, 255, 0.05)',
-                      color: '#ffffff',
-                      border: tspWithdrawalType === 'percent' ? '1px solid rgba(255, 153, 51, 0.5)' : '1px solid #ddd',
+                      backgroundColor: tspWithdrawalType === 'percent' ? '#FF9933' : '#e0e0e0',
+                      color: tspWithdrawalType === 'percent' ? '#ffffff' : '#666',
+                      border: 'none',
                       borderRadius: '4px',
                       cursor: 'pointer',
-                      fontWeight: tspWithdrawalType === 'percent' ? '600' : '400',
-                      fontSize: '13px'
+                      fontWeight: '600',
+                      fontSize: '14px'
                     }}
                   >
-                    Percentage
+                    Percent
                   </button>
                 </div>
 
-                {tspWithdrawalType === 'amount' ? (
-                  <div>
+                {tspWithdrawalType === 'amount' && (
+                  <>
                     <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', fontWeight: '500' }}>
-                      Monthly Withdrawal Amount
+                      Monthly Withdrawal
                     </label>
                     <div style={{ position: 'relative', marginBottom: '15px' }}>
                       <span style={{ position: 'absolute', left: '12px', top: '11px', color: '#999', fontSize: '14px' }}>$</span>
@@ -3461,155 +2162,58 @@ const BearingApp = () => {
                         style={{
                           width: '100%', boxSizing: 'border-box',
                           padding: '10px 10px 10px 24px',
-                          background: 'rgba(255, 255, 255, 0.05)', color: 'rgba(255, 255, 255, 0.9)',
+                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
                           border: '1px solid #ddd',
                           borderRadius: '4px',
                           fontSize: '14px'
                         }}
                       />
                     </div>
-                  </div>
-                ) : (
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', fontWeight: '500' }}>
-                      Annual Withdrawal Rate (% of balance)
+                    
+                    <label style={{ display: 'flex', alignItems: 'center', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px' }}>
+                      <input
+                        type="checkbox"
+                        checked={tspCoverTaxes}
+                        onChange={(e) => setTspCoverTaxes(e.target.checked)}
+                        style={{ marginRight: '8px' }}
+                      />
+                      Withdraw additional to cover TSP taxes
                     </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={tspWithdrawalPercent}
-                      onChange={(e) => setTspWithdrawalPercent(Number(e.target.value))}
-                      style={{
-                        width: '100%', boxSizing: 'border-box',
-                        padding: '10px',
-                        background: 'rgba(255, 255, 255, 0.05)', color: 'rgba(255, 255, 255, 0.9)',
-                        border: '1px solid #ddd',
-                        borderRadius: '4px',
-                        fontSize: '14px',
-                        marginBottom: '15px'
-                      }}
-                    />
-                  </div>
+                    <div style={{ fontSize: '11px', color: '#999', marginTop: '6px', marginLeft: '24px', fontStyle: 'italic' }}>
+                      {tspCoverTaxes && tspWithdrawalAmount > 0 
+                        ? `Total withdrawal: ${formatCurrency(tspWithdrawalAmount / (1 - taxBracket / 100) * 12)} annually`
+                        : 'Uses tax gross-up formula to cover tax liability'}
+                    </div>
+                  </>
                 )}
 
-                <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', fontWeight: '500' }}>
-                  Annual COLA on Withdrawals (%)
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={tspWithdrawalCola}
-                  onChange={(e) => setTspWithdrawalCola(Number(e.target.value))}
-                  style={{
-                    width: '100%', boxSizing: 'border-box',
-                    padding: '10px',
-                    background: 'rgba(255, 255, 255, 0.05)', color: 'rgba(255, 255, 255, 0.9)',
-                    border: '1px solid #ddd',
-                    borderRadius: '4px',
-                    fontSize: '14px',
-                    marginBottom: '15px'
-                  }}
-                />
-
-                <div style={{ marginBottom: '15px', padding: '12px', background: 'rgba(255, 153, 51, 0.1)', borderRadius: '6px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={tspCoverTaxes}
-                      onChange={(e) => setTspCoverTaxes(e.target.checked)}
-                      style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                    />
-                    <span style={{ color: '#fff', fontWeight: '500', fontSize: '13px' }}>
-                      Use TSP withdrawals to cover income taxes
-                    </span>
-                  </label>
-                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', marginTop: '5px', marginLeft: '28px' }}>
-                    If checked, TSP will withdraw extra to pay estimated taxes
-                  </div>
-                </div>
-
-                <div style={{ padding: '12px', background: 'rgba(91, 192, 222, 0.1)', borderRadius: '4px', fontSize: '12px', color: 'rgba(255,255,255,0.7)', marginBottom: '16px' }}>
-                  💡 RMDs are applied automatically at age 73. See "Retirement Income Planning" for the full schedule.
-                </div>
-
-                {/* TSP Withdrawal Schedule */}
-                <div style={{ padding: '15px', background: 'rgba(204, 153, 204, 0.08)', border: '1px solid rgba(204,153,204,0.3)', borderRadius: '8px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', marginBottom: '4px' }}>
-                    <input
-                      type="checkbox"
-                      checked={tspScheduleEnabled}
-                      onChange={(e) => setTspScheduleEnabled(e.target.checked)}
-                      style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                    />
-                    <span style={{ color: '#CC99CC', fontWeight: '700', fontSize: '13px' }}>📅 Use Phased Withdrawal Schedule</span>
-                  </label>
-                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: tspScheduleEnabled ? '16px' : '0', marginLeft: '26px', fontStyle: 'italic' }}>
-                    Set different monthly amounts for different life stages. RMD minimum always applies at 73+.
-                  </div>
-
-                  {tspScheduleEnabled && (
-                    <div style={{ marginTop: '12px' }}>
-                      {/* Phase 1 */}
-                      <div style={{ marginBottom: '14px', padding: '12px', background: 'rgba(255,255,255,0.04)', borderRadius: '6px', border: '1px solid rgba(255,153,51,0.25)' }}>
-                        <div style={{ color: '#FF9933', fontWeight: '600', fontSize: '12px', marginBottom: '8px' }}>📍 Phase 1 — Starting Withdrawal (from retirement)</div>
-                        <label style={{ display: 'block', marginBottom: '4px', color: 'rgba(255,255,255,0.7)', fontSize: '12px' }}>Monthly Amount</label>
-                        <div style={{ position: 'relative' }}>
-                          <span style={{ position: 'absolute', left: '10px', top: '10px', color: '#999', fontSize: '13px' }}>$</span>
-                          <input type="number" value={tspPhase1Amount} onChange={(e) => setTspPhase1Amount(Number(e.target.value))}
-                            style={{ width: '100%', boxSizing: 'border-box', padding: '8px 8px 8px 22px', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.9)', border: '1px solid rgba(255,153,51,0.3)', borderRadius: '4px', fontSize: '13px' }} />
-                        </div>
-                      </div>
-
-                      {/* Phase 2 */}
-                      <div style={{ marginBottom: '14px', padding: '12px', background: 'rgba(255,255,255,0.04)', borderRadius: '6px', border: '1px solid rgba(91,192,222,0.25)' }}>
-                        <div style={{ color: '#5bc0de', fontWeight: '600', fontSize: '12px', marginBottom: '8px' }}>📍 Phase 2 — Change at Age</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                          <div>
-                            <label style={{ display: 'block', marginBottom: '4px', color: 'rgba(255,255,255,0.7)', fontSize: '12px' }}>Start Age</label>
-                            <input type="number" value={tspPhase2Age} onChange={(e) => setTspPhase2Age(Number(e.target.value))}
-                              style={{ width: '100%', boxSizing: 'border-box', padding: '8px', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.9)', border: '1px solid rgba(91,192,222,0.3)', borderRadius: '4px', fontSize: '13px' }} />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', marginBottom: '4px', color: 'rgba(255,255,255,0.7)', fontSize: '12px' }}>Monthly Amount</label>
-                            <div style={{ position: 'relative' }}>
-                              <span style={{ position: 'absolute', left: '10px', top: '10px', color: '#999', fontSize: '13px' }}>$</span>
-                              <input type="number" value={tspPhase2Amount} onChange={(e) => setTspPhase2Amount(Number(e.target.value))}
-                                style={{ width: '100%', boxSizing: 'border-box', padding: '8px 8px 8px 22px', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.9)', border: '1px solid rgba(91,192,222,0.3)', borderRadius: '4px', fontSize: '13px' }} />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Phase 3 */}
-                      <div style={{ padding: '12px', background: 'rgba(255,255,255,0.04)', borderRadius: '6px', border: '1px solid rgba(204,153,204,0.25)' }}>
-                        <div style={{ color: '#CC99CC', fontWeight: '600', fontSize: '12px', marginBottom: '8px' }}>📍 Phase 3 — Change at Age</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                          <div>
-                            <label style={{ display: 'block', marginBottom: '4px', color: 'rgba(255,255,255,0.7)', fontSize: '12px' }}>Start Age</label>
-                            <input type="number" value={tspPhase3Age} onChange={(e) => setTspPhase3Age(Number(e.target.value))}
-                              style={{ width: '100%', boxSizing: 'border-box', padding: '8px', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.9)', border: '1px solid rgba(204,153,204,0.3)', borderRadius: '4px', fontSize: '13px' }} />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', marginBottom: '4px', color: 'rgba(255,255,255,0.7)', fontSize: '12px' }}>Monthly Amount</label>
-                            <div style={{ position: 'relative' }}>
-                              <span style={{ position: 'absolute', left: '10px', top: '10px', color: '#999', fontSize: '13px' }}>$</span>
-                              <input type="number" value={tspPhase3Amount} onChange={(e) => setTspPhase3Amount(Number(e.target.value))}
-                                style={{ width: '100%', boxSizing: 'border-box', padding: '8px 8px 8px 22px', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.9)', border: '1px solid rgba(204,153,204,0.3)', borderRadius: '4px', fontSize: '13px' }} />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Summary */}
-                      <div style={{ marginTop: '12px', padding: '10px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', fontSize: '11px', color: 'rgba(255,255,255,0.6)', lineHeight: '1.8' }}>
-                        <div>🟠 <strong style={{ color: '#FF9933' }}>Phase 1:</strong> ${tspPhase1Amount.toLocaleString()}/mo from retirement</div>
-                        <div>🔵 <strong style={{ color: '#5bc0de' }}>Phase 2:</strong> ${tspPhase2Amount.toLocaleString()}/mo starting age {tspPhase2Age}</div>
-                        <div>🟣 <strong style={{ color: '#CC99CC' }}>Phase 3:</strong> ${tspPhase3Amount.toLocaleString()}/mo starting age {tspPhase3Age}</div>
-                        <div style={{ marginTop: '6px', color: 'rgba(255,153,51,0.8)', fontStyle: 'italic' }}>⚠️ IRS RMD minimum overrides lower planned amounts at age 73+</div>
-                      </div>
+                {tspWithdrawalType === 'percent' && (
+                  <>
+                    <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', fontWeight: '500' }}>
+                      Annual Withdrawal Rate (%)
+                    </label>
+                    <div style={{ position: 'relative', marginBottom: '15px' }}>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={tspWithdrawalPercent}
+                        onChange={(e) => setTspWithdrawalPercent(Number(e.target.value))}
+                        style={{
+                          width: '100%', boxSizing: 'border-box',
+                          padding: '10px',
+                          background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          fontSize: '14px'
+                        }}
+                      />
+                      <span style={{ position: 'absolute', right: '12px', top: '11px', color: '#999', fontSize: '14px' }}>%</span>
                     </div>
-                  )}
-                </div>
+                    <div style={{ fontSize: '11px', color: '#999', fontStyle: 'italic', marginTop: '-10px', marginBottom: '15px' }}>
+                      💡 The 4% rule is a common safe withdrawal rate for retirement
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -4502,6 +3106,7 @@ const BearingApp = () => {
               </div>
             )}
           </div>
+
               </div>
             )}
           </div>
@@ -4556,7 +3161,7 @@ const BearingApp = () => {
             </div>
 
             {openGroups.settingsGroup && (
-              <div style={{
+              <div style={{ 
                 marginLeft: '12px',
                 paddingLeft: '12px',
                 borderLeft: '2px solid rgba(204, 153, 204, 0.2)'
@@ -4958,6 +3563,8 @@ const BearingApp = () => {
             document.body
           )}
 
+          )}
+
           {/* Retirement Income Planning Section - NEW FOR v3.1.0 */}
           <div style={{ marginBottom: '15px' }}>
             <div 
@@ -5000,100 +3607,26 @@ const BearingApp = () => {
               <span style={{ fontSize: '12px' }}>{openSections.withdrawalStrategy ? '▲' : '▼'}</span>
             </div>
             {openSections.withdrawalStrategy && (
-              <div style={{ background: 'rgba(255, 255, 255, 0.03)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', padding: '20px', border: '1px solid rgba(204,153,204,0.3)', borderTop: 'none', borderRadius: '0 0 8px 8px' }}>
-
-                {/* RMD Schedule */}
-                {(() => {
-                  const currentYear = new Date().getFullYear();
-                  const person1BirthYear = person1Dob ? parseInt(person1Dob.split('-')[0]) : (currentYear - 62);
-                  const currentAge = currentYear - person1BirthYear;
-                  const startAge = Math.max(73, currentAge);
-                  const lifeExpectancyTable = {
-                    73:26.5,74:25.5,75:24.6,76:23.7,77:22.9,78:22.0,79:21.1,80:20.2,
-                    81:19.4,82:18.5,83:17.7,84:16.8,85:16.0,86:15.2,87:14.4,88:13.7,
-                    89:12.9,90:12.2,91:11.5,92:10.8,93:10.1,94:9.5,95:8.9,96:8.4,
-                  };
-
-                  // Project TSP balance to age 73 using simple growth
-                  let projBalance = tspBalance;
-                  const yearsToRmd = Math.max(0, 73 - currentAge);
-                  for (let i = 0; i < yearsToRmd; i++) {
-                    const monthlyWd = tspScheduleEnabled
-                      ? (i + currentAge >= tspPhase3Age ? tspPhase3Amount : i + currentAge >= tspPhase2Age ? tspPhase2Amount : tspPhase1Amount)
-                      : (tspWithdrawalType === 'amount' ? tspWithdrawalAmount : 0);
-                    projBalance = projBalance * (1 + tspGrowthRate / 100) - (monthlyWd * 12);
-                    projBalance = Math.max(0, projBalance);
-                  }
-
-                  const rmdRows = [];
-                  let bal = projBalance;
-                  for (let age = startAge; age <= Math.min(95, startAge + 15); age++) {
-                    const factor = lifeExpectancyTable[age] || 6.4;
-                    const rmd = bal / factor;
-                    const monthlyRmd = rmd / 12;
-                    // planned withdrawal this age
-                    let planned = tspScheduleEnabled
-                      ? (age >= tspPhase3Age ? tspPhase3Amount : age >= tspPhase2Age ? tspPhase2Amount : tspPhase1Amount) * 12
-                      : (tspWithdrawalType === 'amount' ? tspWithdrawalAmount * 12 : bal * (tspWithdrawalPercent / 100));
-                    const rmdApplies = rmd > planned;
-                    const actualWd = rmdApplies ? rmd : planned;
-                    rmdRows.push({ age, year: currentYear + (age - currentAge), balance: Math.round(bal), factor, rmd: Math.round(rmd), monthlyRmd: Math.round(monthlyRmd), planned: Math.round(planned), rmdApplies, actualWd: Math.round(actualWd) });
-                    bal = bal * (1 + tspGrowthRate / 100) - actualWd;
-                    bal = Math.max(0, bal);
-                  }
-
-                  return (
-                    <div>
-                      {currentAge < 73 && (
-                        <div style={{ padding: '10px 14px', background: 'rgba(255,153,51,0.1)', border: '1px solid rgba(255,153,51,0.3)', borderRadius: '6px', marginBottom: '16px', fontSize: '12px', color: 'rgba(255,255,255,0.7)' }}>
-                          ⏳ You are <strong style={{ color: '#FF9933' }}>{73 - currentAge} years</strong> away from RMDs (age 73). Table below shows projected RMD schedule based on current TSP balance and growth rate.
-                        </div>
-                      )}
-                      {currentAge >= 73 && (
-                        <div style={{ padding: '10px 14px', background: 'rgba(217,83,79,0.1)', border: '1px solid rgba(217,83,79,0.3)', borderRadius: '6px', marginBottom: '16px', fontSize: '12px', color: 'rgba(255,255,255,0.7)' }}>
-                          ⚠️ <strong style={{ color: '#d9534f' }}>RMDs are active.</strong> IRS requires minimum distributions each year. Missing an RMD triggers a 25% excise tax on the shortfall.
-                        </div>
-                      )}
-
-                      <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '10px' }}>
-                        📋 RMD Schedule — IRS Uniform Lifetime Table
-                      </div>
-
-                      <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                          <thead>
-                            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.15)' }}>
-                              {['Age', 'Year', 'TSP Balance', 'Factor', 'RMD Required', 'RMD/mo', 'Status'].map(h => (
-                                <th key={h} style={{ padding: '6px 8px', color: 'rgba(255,255,255,0.5)', fontWeight: '600', textAlign: h === 'Age' || h === 'Year' ? 'center' : 'right', whiteSpace: 'nowrap' }}>{h}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {rmdRows.map((row, i) => (
-                              <tr key={row.age} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: row.rmdApplies ? 'rgba(255,153,51,0.06)' : 'transparent' }}>
-                                <td style={{ padding: '6px 8px', color: '#fff', fontWeight: '600', textAlign: 'center' }}>{row.age}</td>
-                                <td style={{ padding: '6px 8px', color: 'rgba(255,255,255,0.5)', textAlign: 'center' }}>{row.year}</td>
-                                <td style={{ padding: '6px 8px', color: 'rgba(255,255,255,0.8)', textAlign: 'right' }}>${row.balance.toLocaleString()}</td>
-                                <td style={{ padding: '6px 8px', color: 'rgba(255,255,255,0.5)', textAlign: 'right' }}>{row.factor}</td>
-                                <td style={{ padding: '6px 8px', color: row.rmdApplies ? '#FF9933' : 'rgba(255,255,255,0.6)', fontWeight: row.rmdApplies ? '700' : '400', textAlign: 'right' }}>${row.rmd.toLocaleString()}</td>
-                                <td style={{ padding: '6px 8px', color: row.rmdApplies ? '#FF9933' : 'rgba(255,255,255,0.6)', textAlign: 'right' }}>${row.monthlyRmd.toLocaleString()}</td>
-                                <td style={{ padding: '6px 8px', textAlign: 'right' }}>
-                                  {row.rmdApplies
-                                    ? <span style={{ color: '#FF9933', fontWeight: '700', fontSize: '11px' }}>⚡ RMD OVERRIDES</span>
-                                    : <span style={{ color: '#5cb85c', fontSize: '11px' }}>✓ Plan OK</span>}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      <div style={{ marginTop: '12px', fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>
-                        Projections assume {tspGrowthRate}% annual growth. RMD calculated on prior year-end balance per IRS rules. Consult a tax advisor for your specific situation.
-                      </div>
-                    </div>
-                  );
-                })()}
+              <div style={{ background: 'rgba(255, 255, 255, 0.03)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', padding: '20px', border: '1px solid #e0e0e0', borderTop: 'none' }}>
+                
+                <div style={{ 
+                  padding: '20px', 
+                  background: 'rgba(153, 153, 255, 0.1)', 
+                  borderRadius: '8px',
+                  border: '1px dashed rgba(153, 153, 255, 0.3)',
+                  textAlign: 'center'
+                }}>
+                  <div style={{ fontSize: '48px', marginBottom: '10px' }}>🚧</div>
+                  <div style={{ color: '#9999FF', fontSize: '16px', fontWeight: '600', marginBottom: '8px' }}>
+                    Coming Soon!
+                  </div>
+                  <div style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', lineHeight: '1.5' }}>
+                    Declining withdrawal schedules, RMD calculations, and tax-aware distribution strategies will be built here.
+                  </div>
+                  <div style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: '11px', marginTop: '12px', fontStyle: 'italic' }}>
+                    Foundation laid in v3.1.0 • Full features coming in v3.2.0
+                  </div>
+                </div>
 
               </div>
             )}
@@ -5241,31 +3774,6 @@ const BearingApp = () => {
             </button>
           </div>
           
-          {importSuccessMsg && (
-            <div style={{
-              padding: '10px 14px', borderRadius: '6px', marginBottom: '10px',
-              background: importSuccessMsg.startsWith('✅') ? 'rgba(92,184,92,0.15)' : 'rgba(217,83,79,0.15)',
-              border: `1px solid ${importSuccessMsg.startsWith('✅') ? 'rgba(92,184,92,0.4)' : 'rgba(217,83,79,0.4)'}`,
-              color: '#fff', fontSize: '13px', fontWeight: '500', textAlign: 'center'
-            }}>
-              {importSuccessMsg}
-            </div>
-          )}
-
-          {showClearConfirm && (
-            <div style={{
-              padding: '14px', borderRadius: '6px', marginBottom: '10px',
-              background: 'rgba(217,83,79,0.15)', border: '1px solid rgba(217,83,79,0.4)',
-              fontSize: '13px', color: '#fff'
-            }}>
-              <div style={{ fontWeight: '600', marginBottom: '10px' }}>⚠️ Clear all data? This cannot be undone.</div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={confirmClearData} style={{ flex: 1, padding: '8px', background: 'rgba(217,83,79,0.4)', border: '1px solid rgba(217,83,79,0.6)', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: '600', fontSize: '12px' }}>Yes, Clear Everything</button>
-                <button onClick={() => setShowClearConfirm(false)} style={{ flex: 1, padding: '8px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Cancel</button>
-              </div>
-            </div>
-          )}
-
           <div style={{ 
             fontSize: '11px', 
             color: '#999', 
@@ -5276,7 +3784,7 @@ const BearingApp = () => {
             borderRadius: '4px',
             marginBottom: '15px'
           }}>
-            💡 Your data is auto-saved in your browser. Use Export to back up across devices.
+            💡 Your data is automatically saved in your browser and never leaves your device
           </div>
 
           {/* Reset to Demo Data Button */}
@@ -5352,23 +3860,13 @@ const BearingApp = () => {
                   style={{
                     flex: 1,
                     padding: '14px 20px',
-                    background: !rentalView 
-                      ? 'rgba(255, 153, 51, 0.25)'
-                      : 'rgba(255, 255, 255, 0.08)',
-                    backdropFilter: 'blur(20px)',
-                    WebkitBackdropFilter: 'blur(20px)',
-                    color: '#ffffff',
-                    border: !rentalView 
-                      ? '2px solid rgba(255, 153, 51, 0.6)'
-                      : '2px solid rgba(255, 255, 255, 0.2)',
-                    borderRadius: '8px',
+                    backgroundColor: !rentalView ? '#FF9933' : '#ffffff',
+                    color: !rentalView ? '#ffffff' : '#666',
+                    border: '2px solid #FF9933',
+                    borderRadius: '4px',
                     cursor: 'pointer',
                     fontWeight: '700',
-                    fontSize: '15px',
-                    boxShadow: !rentalView
-                      ? '0 4px 15px rgba(255, 153, 51, 0.3)'
-                      : '0 2px 8px rgba(0, 0, 0, 0.2)',
-                    transition: 'all 0.3s ease'
+                    fontSize: '15px'
                   }}
                 >
                   📊 RETIREMENT
@@ -5378,23 +3876,13 @@ const BearingApp = () => {
                   style={{
                     flex: 1,
                     padding: '14px 20px',
-                    background: rentalView 
-                      ? 'rgba(255, 153, 51, 0.25)'
-                      : 'rgba(255, 255, 255, 0.08)',
-                    backdropFilter: 'blur(20px)',
-                    WebkitBackdropFilter: 'blur(20px)',
-                    color: '#ffffff',
-                    border: rentalView 
-                      ? '2px solid rgba(255, 153, 51, 0.6)'
-                      : '2px solid rgba(255, 255, 255, 0.2)',
-                    borderRadius: '8px',
+                    backgroundColor: rentalView ? '#FF9933' : '#ffffff',
+                    color: rentalView ? '#ffffff' : '#666',
+                    border: '2px solid #FF9933',
+                    borderRadius: '4px',
                     cursor: 'pointer',
                     fontWeight: '700',
-                    fontSize: '15px',
-                    boxShadow: rentalView
-                      ? '0 4px 15px rgba(255, 153, 51, 0.3)'
-                      : '0 2px 8px rgba(0, 0, 0, 0.2)',
-                    transition: 'all 0.3s ease'
+                    fontSize: '15px'
                   }}
                 >
                   🏠 RENTAL
@@ -5409,23 +3897,13 @@ const BearingApp = () => {
                       onClick={() => setViewMode('table')}
                       style={{
                         padding: '12px 24px',
-                        background: viewMode === 'table' 
-                          ? 'rgba(255, 153, 51, 0.25)'
-                          : 'rgba(255, 255, 255, 0.08)',
-                        backdropFilter: 'blur(20px)',
-                        WebkitBackdropFilter: 'blur(20px)',
-                        color: '#ffffff',
-                        border: viewMode === 'table'
-                          ? '2px solid rgba(255, 153, 51, 0.6)'
-                          : '2px solid rgba(255, 255, 255, 0.2)',
-                        borderRadius: '8px',
+                        backgroundColor: viewMode === 'table' ? '#FF9933' : '#ffffff',
+                        color: viewMode === 'table' ? '#ffffff' : '#666',
+                        border: '2px solid #FF9933',
+                        borderRadius: '4px',
                         cursor: 'pointer',
                         fontWeight: '600',
-                        fontSize: '14px',
-                        boxShadow: viewMode === 'table'
-                          ? '0 4px 15px rgba(255, 153, 51, 0.3)'
-                          : '0 2px 8px rgba(0, 0, 0, 0.2)',
-                        transition: 'all 0.3s ease'
+                        fontSize: '14px'
                       }}
                     >
                       TABLE VIEW
@@ -5434,23 +3912,13 @@ const BearingApp = () => {
                       onClick={() => setViewMode('chart')}
                       style={{
                         padding: '12px 24px',
-                        background: viewMode === 'chart' 
-                          ? 'rgba(255, 153, 51, 0.25)'
-                          : 'rgba(255, 255, 255, 0.08)',
-                        backdropFilter: 'blur(20px)',
-                        WebkitBackdropFilter: 'blur(20px)',
-                        color: '#ffffff',
-                        border: viewMode === 'chart'
-                          ? '2px solid rgba(255, 153, 51, 0.6)'
-                          : '2px solid rgba(255, 255, 255, 0.2)',
-                        borderRadius: '8px',
+                        backgroundColor: viewMode === 'chart' ? '#FF9933' : '#ffffff',
+                        color: viewMode === 'chart' ? '#ffffff' : '#666',
+                        border: '2px solid #FF9933',
+                        borderRadius: '4px',
                         cursor: 'pointer',
                         fontWeight: '600',
-                        fontSize: '14px',
-                        boxShadow: viewMode === 'chart'
-                          ? '0 4px 15px rgba(255, 153, 51, 0.3)'
-                          : '0 2px 8px rgba(0, 0, 0, 0.2)',
-                        transition: 'all 0.3s ease'
+                        fontSize: '14px'
                       }}
                     >
                       CHART VIEW
@@ -5459,23 +3927,13 @@ const BearingApp = () => {
                       onClick={() => setViewMode('monte')}
                       style={{
                         padding: '12px 24px',
-                        background: viewMode === 'monte' 
-                          ? 'rgba(204, 153, 204, 0.25)'
-                          : 'rgba(255, 255, 255, 0.08)',
-                        backdropFilter: 'blur(20px)',
-                        WebkitBackdropFilter: 'blur(20px)',
-                        color: '#ffffff',
-                        border: viewMode === 'monte'
-                          ? '2px solid rgba(204, 153, 204, 0.6)'
-                          : '2px solid rgba(255, 255, 255, 0.2)',
-                        borderRadius: '8px',
+                        backgroundColor: viewMode === 'monte' ? '#CC99CC' : '#ffffff',
+                        color: viewMode === 'monte' ? '#ffffff' : '#666',
+                        border: '2px solid #CC99CC',
+                        borderRadius: '4px',
                         cursor: 'pointer',
                         fontWeight: '600',
-                        fontSize: '14px',
-                        boxShadow: viewMode === 'monte'
-                          ? '0 4px 15px rgba(204, 153, 204, 0.3)'
-                          : '0 2px 8px rgba(0, 0, 0, 0.2)',
-                        transition: 'all 0.3s ease'
+                        fontSize: '14px'
                       }}
                     >
                       🎲 MONTE CARLO
@@ -5485,26 +3943,6 @@ const BearingApp = () => {
               {viewMode === 'monte' ? (
                 /* ─── MONTE CARLO VIEW ─── */
                 <div>
-                  {/* Monte Carlo Explanation */}
-                  <div style={{ background: 'rgba(91, 192, 222, 0.1)', border: '1px solid rgba(91, 192, 222, 0.3)', borderRadius: '8px', padding: '20px', marginBottom: '20px' }}>
-                    <h3 style={{ margin: '0 0 12px 0', color: '#5bc0de', fontSize: '16px', fontWeight: '700' }}>📚 What is Monte Carlo Simulation?</h3>
-                    <p style={{ margin: '0 0 12px 0', color: 'rgba(255,255,255,0.8)', fontSize: '14px', lineHeight: '1.6' }}>
-                      A Monte Carlo simulation runs <strong>thousands of "what-if" scenarios</strong> to test how your retirement plan holds up under different market conditions.
-                    </p>
-                    <p style={{ margin: '0 0 12px 0', color: 'rgba(255,255,255,0.8)', fontSize: '14px', lineHeight: '1.6' }}>
-                      Instead of assuming the market returns exactly {tspGrowthRate}% every year (which never happens in real life), we simulate 5,000 different futures where:
-                    </p>
-                    <ul style={{ margin: '0 0 12px 0', paddingLeft: '20px', color: 'rgba(255,255,255,0.7)', fontSize: '13px', lineHeight: '1.6' }}>
-                      <li>Some years the market is up 20%</li>
-                      <li>Some years it's down 15%</li>
-                      <li>Most years it's somewhere in between</li>
-                      <li>The sequence of good and bad years is randomized (this matters!)</li>
-                    </ul>
-                    <p style={{ margin: '0', color: 'rgba(255,255,255,0.8)', fontSize: '14px', lineHeight: '1.6' }}>
-                      <strong>Why this matters:</strong> If you retire right before a market crash (2008, 2022), you're forced to sell shares when they're down, which permanently reduces your portfolio. Monte Carlo shows you the <em>probability</em> your plan survives both good and bad market timing.
-                    </p>
-                  </div>
-
                   {/* Settings Bar */}
                   <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(204,153,204,0.3)', borderRadius: '8px', padding: '20px', marginBottom: '20px' }}>
                     <h3 style={{ margin: '0 0 16px 0', color: '#CC99CC', fontSize: '16px', fontWeight: '700' }}>🎲 Monte Carlo Simulation Settings</h3>
@@ -5536,9 +3974,8 @@ const BearingApp = () => {
                         <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', marginBottom: '8px', fontWeight: '600' }}>Simulation: 5,000 runs</div>
                         <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginBottom: '12px' }}>Using log-normal return distribution<br/>Mean: {tspGrowthRate}% | σ: {mcStdDevOverride ?? riskProfiles[mcRiskProfile].stdDev}%</div>
                         <button onClick={runMonteCarlo} disabled={monteCarloRunning}
-                          style={{ width: '100%', padding: '12px 12px 8px 12px', background: monteCarloRunning ? 'rgba(204,153,204,0.3)' : 'linear-gradient(135deg, rgba(204,153,204,0.8), rgba(204,153,204,0.5))', color: '#fff', border: 'none', borderRadius: '6px', cursor: monteCarloRunning ? 'wait' : 'pointer', fontWeight: '700', fontSize: '14px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                          <span>{monteCarloRunning ? '⏳ Running...' : '🎲 Test Your Plan'}</span>
-                          <span style={{ fontSize: '10px', fontWeight: '400', opacity: '0.7' }}>{monteCarloRunning ? '5,000 scenarios' : 'Monte Carlo Simulation'}</span>
+                          style={{ width: '100%', padding: '12px', background: monteCarloRunning ? 'rgba(204,153,204,0.3)' : 'linear-gradient(135deg, rgba(204,153,204,0.8), rgba(204,153,204,0.5))', color: '#fff', border: 'none', borderRadius: '6px', cursor: monteCarloRunning ? 'wait' : 'pointer', fontWeight: '700', fontSize: '14px' }}>
+                          {monteCarloRunning ? '⏳ Running 5,000 sims...' : '▶ Run Simulation'}
                         </button>
                       </div>
                     </div>
@@ -5547,12 +3984,8 @@ const BearingApp = () => {
                   {!monteCarloResults && !monteCarloRunning && (
                     <div style={{ textAlign: 'center', padding: '60px', color: 'rgba(255,255,255,0.4)' }}>
                       <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎲</div>
-                      <div style={{ fontSize: '18px', marginBottom: '12px', color: 'rgba(255,255,255,0.6)' }}>Ready to Test Your Plan</div>
-                      <div style={{ fontSize: '13px', lineHeight: '1.6', maxWidth: '500px', margin: '0 auto' }}>
-                        Click <strong>"Run Simulation"</strong> above to see how your retirement plan performs across 5,000 different market scenarios.
-                        <br/><br/>
-                        <strong style={{ color: '#5bc0de' }}>💡 Tip:</strong> Make sure you've clicked <strong>Calculate</strong> first to set your baseline projection.
-                      </div>
+                      <div style={{ fontSize: '18px', marginBottom: '8px', color: 'rgba(255,255,255,0.6)' }}>Ready to run Monte Carlo</div>
+                      <div style={{ fontSize: '13px' }}>Click "Run Simulation" above to model 5,000 market scenarios.<br/>Make sure you've clicked Calculate first to set your base inputs.</div>
                     </div>
                   )}
 
@@ -5567,14 +4000,11 @@ const BearingApp = () => {
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '16px', marginBottom: '24px' }}>
                           {/* Main Probability Gauge */}
                           <div style={{ gridColumn: '1 / 2', background: `linear-gradient(135deg, ${scoreColor}22, ${scoreColor}11)`, border: `2px solid ${scoreColor}`, borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
-                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', letterSpacing: '1px', marginBottom: '8px', textTransform: 'uppercase' }}>Success Rate</div>
+                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', letterSpacing: '1px', marginBottom: '8px', textTransform: 'uppercase' }}>Confidence Score</div>
                             <div style={{ fontSize: '56px', fontWeight: '900', color: scoreColor, lineHeight: 1, marginBottom: '4px' }}>{mc.probabilityScore}%</div>
                             <div style={{ fontSize: '13px', fontWeight: '700', color: scoreColor, marginBottom: '8px' }}>{scoreLabel}</div>
-                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', lineHeight: '1.5', fontWeight: '500' }}>
-                              Money lasts to age {mc.lifeExpAge}
-                            </div>
-                            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginTop: '4px', lineHeight: '1.4' }}>
-                              {mc.probabilityScore}% of scenarios succeeded
+                            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', lineHeight: '1.5' }}>
+                              Probability TSP lasts<br/>to age {mc.lifeExpAge}
                             </div>
                             {/* Mini gauge bar */}
                             <div style={{ marginTop: '12px', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
@@ -5584,33 +4014,28 @@ const BearingApp = () => {
 
                           {/* Supporting stats */}
                           <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
-                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>Money Lasts to {mc.lifeExpAge + 5}</div>
+                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>To Age {mc.lifeExpAge + 5}</div>
                             <div style={{ fontSize: '36px', fontWeight: '800', color: getScoreColor(mc.probabilityPlus5) }}>{mc.probabilityPlus5}%</div>
-                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '6px' }}>Success rate (life exp. +5)</div>
+                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '6px' }}>Life exp. +5 years</div>
                           </div>
 
                           <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
-                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>Money Lasts to {mc.lifeExpAge + 10}</div>
+                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>To Age {mc.lifeExpAge + 10}</div>
                             <div style={{ fontSize: '36px', fontWeight: '800', color: getScoreColor(mc.probabilityPlus10) }}>{mc.probabilityPlus10}%</div>
-                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '6px' }}>Success rate (life exp. +10)</div>
+                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '6px' }}>Life exp. +10 years</div>
                           </div>
 
                           <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
-                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>Money Lasts to 100</div>
-                            <div style={{ fontSize: '36px', fontWeight: '800', color: getScoreColor(mc.probabilityTo100 || 0) }}>{mc.probabilityTo100 || 0}%</div>
-                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '6px' }}>Success rate (age 100)</div>
-                          </div>
-                        </div>
-
-                        {/* Explanation panel */}
-                        <div style={{ background: 'rgba(91, 192, 222, 0.08)', border: '1px solid rgba(91, 192, 222, 0.2)', borderRadius: '8px', padding: '14px', marginBottom: '20px' }}>
-                          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.8)', lineHeight: '1.6' }}>
-                            <strong style={{ color: '#5bc0de' }}>💡 How to read these numbers:</strong>
-                            <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px', color: 'rgba(255,255,255,0.7)' }}>
-                              <li><strong>Success Rate:</strong> {mc.probabilityScore}% of the 5,000 scenarios had money remaining at age {mc.lifeExpAge}</li>
-                              <li><strong>Extended Success:</strong> {mc.probabilityPlus5}% made it to age {mc.lifeExpAge + 5}, {mc.probabilityPlus10}% made it to age {mc.lifeExpAge + 10}, and {mc.probabilityTo100}% made it to age 100</li>
-                              <li><strong>Key insight:</strong> These percentages show how likely your plan is to succeed under different market conditions and lifespans</li>
-                            </ul>
+                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>Scenarios Depleted</div>
+                            <div style={{ fontSize: '36px', fontWeight: '800', color: mc.ranOutCount / mc.numSims > 0.3 ? '#dc3545' : '#FF9933' }}>
+                              {Math.round(mc.ranOutCount / mc.numSims * 100)}%
+                            </div>
+                            {mc.medianDepletionAge && (
+                              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '6px' }}>Median depletion: age {mc.medianDepletionAge}</div>
+                            )}
+                            {!mc.medianDepletionAge && (
+                              <div style={{ fontSize: '11px', color: '#28a745', marginTop: '6px' }}>No depletion in median scenario</div>
+                            )}
                           </div>
                         </div>
 
