@@ -808,9 +808,11 @@ const BearingApp = () => {
       
       // Social Security: starts the month after turning 62 (so if born in April, starts in May)
       let ss = 0;
+      const ssStartYear = 62 - startAge; // projection index when SS starts
       if (age > 62) {
-        // Full year of SS
-        ss = ssAmount * (isMonthly ? 12 : 1) * Math.pow(1 + ssCola / 100, i - (age - 62));
+        // Full year of SS - COLA compounds from year SS started
+        const yearsOfSS = i - ssStartYear;
+        ss = ssAmount * (isMonthly ? 12 : 1) * Math.pow(1 + ssCola / 100, yearsOfSS);
       } else if (age === 62) {
         // Partial year - starts month after birth month
         const monthsOfSS = 12 - birthMonth;
