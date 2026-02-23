@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, ReferenceLine, ComposedChart } from 'recharts';
 
-console.log("✨ v3.7.10 - Person 2 DOB fix, assessment updates");
+console.log("✨ v3.7.13 - Full reset fix, unused var warning");
 console.log("🔵 APP.JS LOADED - Y-AXIS FIX VERSION 999");
 const BearingApp = () => {
   // Person 1 (primary) - Demo data defaults
@@ -376,25 +376,60 @@ const BearingApp = () => {
 
   const resetToDemo = () => {
     if (window.confirm('Reset all fields to demo data? Your current data will be lost.')) {
+      // Person 1
       setDob('04/29/1964');
+      setPerson1Dob('1964-04-29');
+      setPerson1Sex('male');
+      setPerson1LifeExpectancy(82);
+      setRetirementAge(62);
+      setAlreadyRetired(true);
       setIsMonthly(true);
+      setHigh3Salary(120000);
+      setYearsOfService(30);
+      setMonthlyGrossPension(6500);
+      setMonthlyFEHB(550);
+      setMonthlyFEGLI(65);
+      setMonthlyOtherDeductions(0);
       setFersAmount(6500);
       setSrsAmount(1360);
       setSsAmount(2795);
+      setSsStartAge(62);
       setFersCola(2.6);
       setSrsCola(2.6);
       setSsCola(2.6);
       setProjectionYears(40);
+      // Person 2
+      setPerson2Enabled(false);
+      setPerson2Dob('');
+      setPerson2Sex('female');
+      setPerson2LifeExpectancy(85);
+      setPerson2FersAmount(0);
+      setPerson2SrsAmount(0);
+      setPerson2SsAmount(0);
+      setPerson2SsStartAge(67);
+      setFersSurvivorRate(50);
+      // TSP
       setTspBalance(1000000);
       setTspGrowthRate(6.5);
-      setTspWithdrawalType('amount');
-      setTspWithdrawalAmount(3000);
+      setTspWithdrawalType('percent');
+      setTspWithdrawalAmount(0);
       setTspWithdrawalPercent(4.0);
       setTspWithdrawalCola(2.6);
       setTspCoverTaxes(true);
+      setTspScheduleEnabled(true);
+      setTspPhase1Age(62);
+      setTspPhase1Amount(4.0);
+      setTspPhase2Age(70);
+      setTspPhase2Amount(3.5);
+      setTspPhase3Age(80);
+      setTspPhase3Amount(3.0);
+      // Other accounts
+      setOtherAccounts([]);
+      // Insurance & deductions
       setHealthInsurance(550);
       setLifeInsurance(65);
       setDentalInsurance(53);
+      // Budget
       setBudgetHousing(2000);
       setBudgetFood(500);
       setBudgetTransportation(500);
@@ -403,16 +438,36 @@ const BearingApp = () => {
       setBudgetOther(491);
       setInflationRate(2.6);
       setExpenses([]);
+      setAdditionalIncome([]);
       setTaxBracket(22);
       setFederalWithheld(683);
       setBudgetMode({
-        housing: 'simple',
-        food: 'simple',
-        transportation: 'simple',
-        healthcare: 'simple',
-        entertainment: 'simple',
-        other: 'simple'
+        housing: 'simple', food: 'simple', transportation: 'simple',
+        healthcare: 'simple', entertainment: 'simple', other: 'simple'
       });
+      // Rental
+      setRentalMonthlyNet(0);
+      setRentalPurchasePrice(0);
+      setRentalCurrentBalance(0);
+      setRentalSaleYear(0);
+      setRentalSalePrice(0);
+      setRentalMortgage(0);
+      setRentalPropertyTax(0);
+      setRentalInsurance(0);
+      setRentalHOA(0);
+      setRentalInternet(0);
+      setRentalMaintenance(0);
+      setRentalLandscaping(0);
+      setRentalPestControl(0);
+      setRentalOther(0);
+      setRentalIncome2025(Array(12).fill(0));
+      setRentalIncome2026(Array(12).fill(0));
+      setRentalIncome2027(Array(12).fill(0));
+      setRentalUtilities2025(Array(12).fill(0));
+      setRentalUtilities2026(Array(12).fill(0));
+      setRentalUtilities2027(Array(12).fill(0));
+      // Monte Carlo
+      setMonteCarloResults(null);
       setExpandedRows(new Set());
       setHasCalculated(false);
       localStorage.setItem('bearingData', JSON.stringify({
@@ -856,10 +911,10 @@ const BearingApp = () => {
         // Determine planned withdrawal for this age (phased schedule or simple)
         let plannedAnnual;
         if (tspScheduleEnabled) {
-          let monthlyAmt = tspPhase1Amount;
-          if (age >= tspPhase3Age) monthlyAmt = tspPhase3Amount;
-          else if (age >= tspPhase2Age) monthlyAmt = tspPhase2Amount;
-          plannedAnnual = monthlyAmt * 12;
+          let phasePct = tspPhase1Amount;
+          if (age >= tspPhase3Age) phasePct = tspPhase3Amount;
+          else if (age >= tspPhase2Age) phasePct = tspPhase2Amount;
+          plannedAnnual = currentTspBalance * (phasePct / 100);
         } else if (tspWithdrawalType === 'amount') {
           plannedAnnual = currentWithdrawal;
         } else {
@@ -1045,7 +1100,7 @@ const BearingApp = () => {
           other: Math.round(yearBudgetOther)
         },
         totalIncome: Math.round(totalIncome),
-        netIncome: Math.round(totalIncome - yearExpenses)
+        netIncome: Math.round(totalIncome - yearExpenses - totalBudget)
       });
     }
     
@@ -1443,8 +1498,16 @@ const BearingApp = () => {
     // Survivor annual income (base, without investment draws)
     const survivorBaseIncome = survivorFers + survivorSs + rentalAtDeath;
 
-    // Assume survivor continues same TSP withdrawal rate
-    const survivorTspWithdrawal = nearTerm.tspWithdrawal;
+    // Recalculate TSP withdrawal using correct phase % applied to balance at death
+    let activePhasePct = tspPhase1Amount;
+    const ageAtDeath = deathAge;
+    if (ageAtDeath >= tspPhase3Age) activePhasePct = tspPhase3Amount;
+    else if (ageAtDeath >= tspPhase2Age) activePhasePct = tspPhase2Amount;
+    const survivorTspWithdrawal = tspScheduleEnabled
+      ? tspAtDeath * (activePhasePct / 100)
+      : (tspWithdrawalType === 'percent'
+          ? tspAtDeath * (tspWithdrawalPercent / 100)
+          : nearTerm.tspWithdrawal);
     const survivorOtherIncome = nearTerm.otherAccountsIncome || 0;
 
     const survivorTotalIncome = survivorBaseIncome + survivorTspWithdrawal + survivorOtherIncome;
@@ -2128,7 +2191,7 @@ const BearingApp = () => {
               FINANCIAL NAVIGATION SYSTEM
             </div>
             <div style={{ color: '#999', fontSize: '10px', marginTop: '4px', fontStyle: 'italic' }}>
-              v3.7.10 — Person 2 DOB fix, assessment updates
+              v3.7.13 — Full reset fix, unused var warning
             </div>
           </div>
         </div>
@@ -3684,34 +3747,54 @@ const BearingApp = () => {
 
                   {tspScheduleEnabled && (
                     <div style={{ marginTop: '12px' }}>
-                      {[
-                        { label: 'Phase 1', color: '#FF9933', borderColor: 'rgba(255,153,51,0.3)', pct: tspPhase1Amount, setPct: setTspPhase1Amount, age: tspPhase1Age, setAge: setTspPhase1Age, ageLabel: 'Start Age' },
-                        { label: 'Phase 2', color: '#5bc0de', borderColor: 'rgba(91,192,222,0.3)', pct: tspPhase2Amount, setPct: setTspPhase2Amount, age: tspPhase2Age, setAge: setTspPhase2Age, ageLabel: 'Start Age' },
-                        { label: 'Phase 3', color: '#CC99CC', borderColor: 'rgba(204,153,204,0.3)', pct: tspPhase3Amount, setPct: setTspPhase3Amount, age: tspPhase3Age, setAge: setTspPhase3Age, ageLabel: 'Start Age' }
-                      ].map((phase, idx) => {
-                        const annualWd = tspBalance * (phase.pct / 100);
-                        const monthlyWd = annualWd / 12;
-                        return (
-                          <div key={idx} style={{ marginBottom: '12px', padding: '12px', background: 'rgba(255,255,255,0.04)', borderRadius: '6px', border: `1px solid ${phase.borderColor}` }}>
-                            <div style={{ color: phase.color, fontWeight: '600', fontSize: '12px', marginBottom: '8px' }}>📍 {phase.label}</div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                              <div>
-                                <label style={{ display: 'block', marginBottom: '4px', color: 'rgba(255,255,255,0.7)', fontSize: '11px' }}>{phase.ageLabel}</label>
-                                <input type="number" value={phase.age} onChange={(e) => phase.setAge(Number(e.target.value))}
-                                  style={{ width: '100%', boxSizing: 'border-box', padding: '8px', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.9)', border: `1px solid ${phase.borderColor}`, borderRadius: '4px', fontSize: '13px' }} />
+                      {(() => {
+                        // Project TSP balance at each phase start age for dollar estimates
+                        const projBalanceAtAge = (targetAge) => {
+                          // Simple compound growth minus phase 1 withdrawals from phase1Age to targetAge
+                          let bal = tspBalance;
+                          const p1StartAge = tspPhase1Age;
+                          const p1Rate = tspPhase1Amount / 100;
+                          const p2Rate = tspPhase2Amount / 100;
+                          const g = tspGrowthRate / 100;
+                          for (let a = p1StartAge; a < targetAge; a++) {
+                            const wd = a >= tspPhase2Age ? (bal * p2Rate) : (bal * p1Rate);
+                            bal = bal * (1 + g) - wd;
+                            if (bal < 0) bal = 0;
+                          }
+                          return bal;
+                        };
+                        const phases = [
+                          { label: 'Phase 1', color: '#FF9933', borderColor: 'rgba(255,153,51,0.3)', pct: tspPhase1Amount, setPct: setTspPhase1Amount, age: tspPhase1Age, setAge: setTspPhase1Age, projBal: tspBalance },
+                          { label: 'Phase 2', color: '#5bc0de', borderColor: 'rgba(91,192,222,0.3)', pct: tspPhase2Amount, setPct: setTspPhase2Amount, age: tspPhase2Age, setAge: setTspPhase2Age, projBal: projBalanceAtAge(tspPhase2Age) },
+                          { label: 'Phase 3', color: '#CC99CC', borderColor: 'rgba(204,153,204,0.3)', pct: tspPhase3Amount, setPct: setTspPhase3Amount, age: tspPhase3Age, setAge: setTspPhase3Age, projBal: projBalanceAtAge(tspPhase3Age) },
+                        ];
+                        return phases.map((phase, idx) => {
+                          const annualWd = phase.projBal * (phase.pct / 100);
+                          const monthlyWd = annualWd / 12;
+                          const isPhase1 = idx === 0;
+                          return (
+                            <div key={idx} style={{ marginBottom: '12px', padding: '12px', background: 'rgba(255,255,255,0.04)', borderRadius: '6px', border: `1px solid ${phase.borderColor}` }}>
+                              <div style={{ color: phase.color, fontWeight: '600', fontSize: '12px', marginBottom: '8px' }}>📍 {phase.label}</div>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                <div>
+                                  <label style={{ display: 'block', marginBottom: '4px', color: 'rgba(255,255,255,0.7)', fontSize: '11px' }}>Start Age</label>
+                                  <input type="number" value={phase.age} onChange={(e) => phase.setAge(Number(e.target.value))}
+                                    style={{ width: '100%', boxSizing: 'border-box', padding: '8px', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.9)', border: `1px solid ${phase.borderColor}`, borderRadius: '4px', fontSize: '13px' }} />
+                                </div>
+                                <div>
+                                  <label style={{ display: 'block', marginBottom: '4px', color: 'rgba(255,255,255,0.7)', fontSize: '11px' }}>Annual Rate (%)</label>
+                                  <input type="number" step="0.1" value={phase.pct} onChange={(e) => phase.setPct(Number(e.target.value))}
+                                    style={{ width: '100%', boxSizing: 'border-box', padding: '8px', background: 'rgba(255,255,255,0.05)', color: phase.color, border: `1px solid ${phase.borderColor}`, borderRadius: '4px', fontSize: '13px', fontWeight: '600' }} />
+                                </div>
                               </div>
-                              <div>
-                                <label style={{ display: 'block', marginBottom: '4px', color: 'rgba(255,255,255,0.7)', fontSize: '11px' }}>Annual Rate (%)</label>
-                                <input type="number" step="0.1" value={phase.pct} onChange={(e) => phase.setPct(Number(e.target.value))}
-                                  style={{ width: '100%', boxSizing: 'border-box', padding: '8px', background: 'rgba(255,255,255,0.05)', color: phase.color, border: `1px solid ${phase.borderColor}`, borderRadius: '4px', fontSize: '13px', fontWeight: '600' }} />
+                              <div style={{ marginTop: '6px', fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>
+                                ≈ <strong style={{ color: phase.color }}>${Math.round(monthlyWd).toLocaleString()}/mo</strong>
+                                <span style={{ marginLeft: '6px' }}>({isPhase1 ? 'at current balance' : `est. balance $${Math.round(phase.projBal / 1000)}k at age ${phase.age}`})</span>
                               </div>
                             </div>
-                            <div style={{ marginTop: '6px', fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>
-                              ≈ <strong style={{ color: phase.color }}>${Math.round(monthlyWd).toLocaleString()}/mo</strong> · ${Math.round(annualWd).toLocaleString()}/yr based on current balance
-                            </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        });
+                      })()}
 
                       {/* Summary */}
                       <div style={{ marginTop: '4px', padding: '10px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', fontSize: '11px', color: 'rgba(255,255,255,0.6)', lineHeight: '1.8' }}>
@@ -6421,9 +6504,15 @@ const BearingApp = () => {
                                         <span>Other:</span>
                                         <span style={{ fontWeight: '600' }}>{formatCurrency(proj.budgetDetails.other)}</span>
                                       </div>
+                                      {proj.expenses > 0 && (
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#FF9933' }}>
+                                          <span>One-Time Expenses:</span>
+                                          <span style={{ fontWeight: '600' }}>{formatCurrency(proj.expenses)}</span>
+                                        </div>
+                                      )}
                                       <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #ddd', paddingTop: '5px', marginTop: '5px' }}>
                                         <span>Total:</span>
-                                        <span style={{ fontWeight: '600' }}>{formatCurrency(proj.budget)}</span>
+                                        <span style={{ fontWeight: '600' }}>{formatCurrency(proj.budget + proj.expenses)}</span>
                                       </div>
                                     </div>
                                   </div>
