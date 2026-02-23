@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, ReferenceLine, ComposedChart } from 'recharts';
 
-console.log("✨ v3.5.05 - All view toggle buttons frosted glass");
+console.log("✨ v3.7.10 - Person 2 DOB fix, assessment updates");
 console.log("🔵 APP.JS LOADED - Y-AXIS FIX VERSION 999");
 const BearingApp = () => {
   // Person 1 (primary) - Demo data defaults
@@ -59,11 +59,12 @@ const BearingApp = () => {
 
   // TSP Withdrawal Schedule — 3 phases with RMD floor
   const [tspScheduleEnabled, setTspScheduleEnabled] = useState(false);
-  const [tspPhase1Amount, setTspPhase1Amount] = useState(3000);
+  const [tspPhase1Age, setTspPhase1Age] = useState(62);
+  const [tspPhase1Amount, setTspPhase1Amount] = useState(4.0); // now a % rate
   const [tspPhase2Age, setTspPhase2Age] = useState(70);
-  const [tspPhase2Amount, setTspPhase2Amount] = useState(2500);
+  const [tspPhase2Amount, setTspPhase2Amount] = useState(3.5); // % rate
   const [tspPhase3Age, setTspPhase3Age] = useState(80);
-  const [tspPhase3Amount, setTspPhase3Amount] = useState(2000);
+  const [tspPhase3Amount, setTspPhase3Amount] = useState(3.0); // % rate
 
   // eslint-disable-next-line no-unused-vars
   const addOtherAccount = (type) => {
@@ -183,8 +184,16 @@ const BearingApp = () => {
   const [rentalPestControl, setRentalPestControl] = useState(0);
   const [rentalOther, setRentalOther] = useState(0);
   const [rentalView, setRentalView] = useState(false); // Toggle between retirement and rental view
+  // Rental Big Picture fields
+  const [rentalMonthlyNet, setRentalMonthlyNet] = useState(0);
+  const [rentalPurchasePrice, setRentalPurchasePrice] = useState(0);
+  const [rentalCurrentBalance, setRentalCurrentBalance] = useState(0); // remaining mortgage balance
+  const [rentalSaleYear, setRentalSaleYear] = useState(0);
+  const [rentalSalePrice, setRentalSalePrice] = useState(0);
   
   const [hasCalculated, setHasCalculated] = useState(false);
+  const [showWillIOkay, setShowWillIOkay] = useState(false);
+  const [darkMode, setDarkMode] = useState(true);
   const [viewMode, setViewMode] = useState('table');
   const [taxBracket, setTaxBracket] = useState(22);
   const [federalWithheld, setFederalWithheld] = useState(683);
@@ -220,7 +229,8 @@ const BearingApp = () => {
     withdrawalStrategy: false,
     fersPension: false,
     socialSecurity: false,
-    tspWithdrawals: false
+    tspWithdrawals: false,
+    otherAccounts: false
   });
 
   const [openGroups, setOpenGroups] = useState({
@@ -417,8 +427,8 @@ const BearingApp = () => {
         projectionYears: 40,
         tspBalance: 1000000,
         tspGrowthRate: 6.5,
-        tspWithdrawalType: 'amount',
-        tspWithdrawalAmount: 3000,
+        tspWithdrawalType: 'percent',
+        tspWithdrawalAmount: 0,
         tspWithdrawalPercent: 4.0,
         tspWithdrawalCola: 2.6,
         tspCoverTaxes: true,
@@ -529,7 +539,7 @@ const BearingApp = () => {
 
   // ── SINGLE SOURCE OF TRUTH: all saveable state ───────────────────────────
   const buildSaveData = () => ({
-    _version: '3.6',
+    _version: '3.7',
     // Identity
     dob, person1Dob, person1Sex, person1LifeExpectancy, retirementAge, isMonthly,
     // Person 2
@@ -543,7 +553,7 @@ const BearingApp = () => {
     // TSP
     tspBalance, tspGrowthRate, tspWithdrawalType,
     tspWithdrawalAmount, tspWithdrawalPercent, tspWithdrawalCola, tspCoverTaxes,
-    tspScheduleEnabled, tspPhase1Amount, tspPhase2Age, tspPhase2Amount, tspPhase3Age, tspPhase3Amount,
+    tspScheduleEnabled, tspPhase1Age, tspPhase1Amount, tspPhase2Age, tspPhase2Amount, tspPhase3Age, tspPhase3Amount,
     // Other accounts
     otherAccounts,
     // Deductions
@@ -560,6 +570,7 @@ const BearingApp = () => {
     inflationRate, expenses, additionalIncome,
     taxBracket, federalWithheld,
     // Rental
+    rentalMonthlyNet, rentalPurchasePrice, rentalCurrentBalance, rentalSaleYear, rentalSalePrice,
     rentalIncome2025, rentalIncome2026, rentalIncome2027,
     rentalMortgage, rentalPropertyTax, rentalInsurance, rentalHOA,
     rentalUtilities2025, rentalUtilities2026, rentalUtilities2027,
@@ -578,7 +589,17 @@ const BearingApp = () => {
     s(setRetirementAge, 'retirementAge', 62);
     s(setIsMonthly, 'isMonthly', true);
     s(setPerson2Enabled, 'person2Enabled', false);
-    s(setPerson2Dob, 'person2Dob', '');
+    if (data.person2Dob) {
+      let dob2 = data.person2Dob;
+      // Convert MM/DD/YYYY to YYYY-MM-DD if needed
+      if (dob2.includes('/')) {
+        const parts = dob2.split('/');
+        dob2 = `${parts[2]}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`;
+      }
+      setPerson2Dob(dob2);
+    } else {
+      setPerson2Dob('');
+    }
     s(setPerson2Sex, 'person2Sex', 'female');
     s(setPerson2LifeExpectancy, 'person2LifeExpectancy', 85);
     s(setPerson2FersAmount, 'person2FersAmount', 0);
@@ -608,12 +629,13 @@ const BearingApp = () => {
     s(setTspWithdrawalPercent, 'tspWithdrawalPercent', 4.0);
     s(setTspWithdrawalCola, 'tspWithdrawalCola', 2.6);
     s(setTspCoverTaxes, 'tspCoverTaxes', false);
-    s(setTspScheduleEnabled, 'tspScheduleEnabled', false);
-    s(setTspPhase1Amount, 'tspPhase1Amount', 3000);
+    s(setTspScheduleEnabled, 'tspScheduleEnabled', true);
+    s(setTspPhase1Age, 'tspPhase1Age', 62);
+    s(setTspPhase1Amount, 'tspPhase1Amount', 4.0);
     s(setTspPhase2Age, 'tspPhase2Age', 70);
-    s(setTspPhase2Amount, 'tspPhase2Amount', 2500);
+    s(setTspPhase2Amount, 'tspPhase2Amount', 3.5);
     s(setTspPhase3Age, 'tspPhase3Age', 80);
-    s(setTspPhase3Amount, 'tspPhase3Amount', 2000);
+    s(setTspPhase3Amount, 'tspPhase3Amount', 3.0);
     s(setOtherAccounts, 'otherAccounts', []);
     s(setHealthInsurance, 'healthInsurance', 0);
     s(setLifeInsurance, 'lifeInsurance', 0);
@@ -636,6 +658,11 @@ const BearingApp = () => {
     s(setAdditionalIncome, 'additionalIncome', []);
     s(setTaxBracket, 'taxBracket', 22);
     s(setFederalWithheld, 'federalWithheld', 0);
+    s(setRentalMonthlyNet, 'rentalMonthlyNet', 0);
+    s(setRentalPurchasePrice, 'rentalPurchasePrice', 0);
+    s(setRentalCurrentBalance, 'rentalCurrentBalance', 0);
+    s(setRentalSaleYear, 'rentalSaleYear', 0);
+    s(setRentalSalePrice, 'rentalSalePrice', 0);
     if (data.rentalIncome2025) setRentalIncome2025(data.rentalIncome2025);
     if (data.rentalIncome2026) setRentalIncome2026(data.rentalIncome2026);
     if (data.rentalIncome2027) setRentalIncome2027(data.rentalIncome2027);
@@ -667,7 +694,7 @@ const BearingApp = () => {
     fersAmount, srsAmount, ssAmount, ssStartAge, fersCola, srsCola, ssCola, projectionYears,
     tspBalance, tspGrowthRate, tspWithdrawalType, tspWithdrawalAmount,
     tspWithdrawalPercent, tspWithdrawalCola, tspCoverTaxes, otherAccounts,
-    tspScheduleEnabled, tspPhase1Amount, tspPhase2Age, tspPhase2Amount, tspPhase3Age, tspPhase3Amount,
+    tspScheduleEnabled, tspPhase1Age, tspPhase1Amount, tspPhase2Age, tspPhase2Amount, tspPhase3Age, tspPhase3Amount,
     healthInsurance, lifeInsurance, dentalInsurance,
     budgetMode, budgetHousing, budgetHousingDetails,
     budgetFood, budgetFoodDetails, budgetTransportation, budgetTransportationDetails,
@@ -691,7 +718,7 @@ const BearingApp = () => {
   }, []);
 
   const exportData = () => {
-    const payload = { _version: '3.6', exportDate: new Date().toISOString(), data: buildSaveData() };
+    const payload = { _version: '3.7', exportDate: new Date().toISOString(), data: buildSaveData() };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -787,6 +814,8 @@ const BearingApp = () => {
     const projections = [];
     let currentTspBalance = tspBalance;
     let currentWithdrawal = tspWithdrawalAmount * (isMonthly ? 12 : 1);
+    // Initialize other account balances
+    const accountBalances = otherAccounts.map(acc => acc.balance);
     
     for (let i = 0; i < projectionYears; i++) {
       const year = currentYear + i;
@@ -949,9 +978,38 @@ const BearingApp = () => {
       
       // Calculate estimated taxes (separated into income tax and TSP tax)
       // Additional income that's not after-tax gets added to taxable income
-      const taxes = calculateTaxes(fers + yearAdditionalIncomeGross, ss, tspWithdrawal);
+      // Calculate other investment account withdrawals
+      let otherAccountsIncome = 0;
+      let otherAccountsTaxable = 0;
+      otherAccounts.forEach((acc, idx) => {
+        if (age >= acc.startAge && accountBalances[idx] > 0) {
+          const yearsActive = age - acc.startAge;
+          const annualWithdrawal = acc.monthlyWithdrawal * 12 * Math.pow(1 + acc.cola / 100, yearsActive);
+          const wd = Math.min(annualWithdrawal, accountBalances[idx]);
+          accountBalances[idx] = Math.max(0, accountBalances[idx] * (1 + acc.growthRate / 100) - wd);
+          otherAccountsIncome += wd;
+          if (acc.type === 'traditional_ira') otherAccountsTaxable += wd;
+        } else if (accountBalances[idx] > 0) {
+          accountBalances[idx] = accountBalances[idx] * (1 + acc.growthRate / 100);
+        }
+      });
+
+      // Rental property net income / sale proceeds
+      let rentalNet = 0;
+      let rentalSaleProceeds = 0;
+      if (rentalSaleYear === 0 || year < rentalSaleYear) {
+        // Still holding - apply monthly net (can be negative)
+        rentalNet = rentalMonthlyNet * 12;
+      } else if (year === rentalSaleYear) {
+        // Sale year - net proceeds = sale price minus remaining mortgage balance
+        rentalSaleProceeds = Math.max(0, rentalSalePrice - rentalCurrentBalance);
+        rentalNet = 0;
+      }
+      // After sale year: both stay 0
+
+      const taxes = calculateTaxes(fers + yearAdditionalIncomeGross + otherAccountsTaxable, ss, tspWithdrawal);
       
-      const totalIncome = fers + srs + ss + tspWithdrawal + yearAdditionalIncomeGross + yearAdditionalIncomeNet;
+      const totalIncome = fers + srs + ss + tspWithdrawal + yearAdditionalIncomeGross + yearAdditionalIncomeNet + otherAccountsIncome + rentalNet + rentalSaleProceeds;
       const netFers = fers - totalDeductions; // FERS after deductions
       
       projections.push({
@@ -972,6 +1030,10 @@ const BearingApp = () => {
         estimatedTaxes: Math.round(taxes.incomeTax),
         estimatedTspTaxes: Math.round(taxes.tspTax),
         tspBalance: Math.round(currentTspBalance),
+        otherAccountsIncome: Math.round(otherAccountsIncome),
+        otherAccountsBalances: accountBalances.map(b => Math.round(b)),
+        rentalNet: Math.round(rentalNet),
+        rentalSaleProceeds: Math.round(rentalSaleProceeds),
         expenses: Math.round(yearExpenses),
         budget: Math.round(totalBudget),
         budgetDetails: {
@@ -1191,8 +1253,11 @@ const BearingApp = () => {
       let survivedCount = { toLifeExp: 0, toLifeExpPlus5: 0, toLifeExpPlus10: 0, toAge100: 0 };
       const lifeExpAge = person1LifeExpectancy;
 
+      const otherAccountsTotal = otherAccounts.reduce((sum, acc) => sum + acc.balance, 0);
+      const totalStartingBalance = tspBalance + otherAccountsTotal;
+
       for (let sim = 0; sim < NUM_SIMS; sim++) {
-        let balance = tspBalance;
+        let balance = totalStartingBalance;
         let withdrawal = tspWithdrawalAmount * (isMonthly ? 12 : 1);
         const runBalances = [];
         let ranOutAt = null;
@@ -1205,10 +1270,10 @@ const BearingApp = () => {
           if (balance > 0) {
             let wd = 0;
             if (tspScheduleEnabled) {
-              let monthlyAmt = tspPhase1Amount;
-              if (age >= tspPhase3Age) monthlyAmt = tspPhase3Amount;
-              else if (age >= tspPhase2Age) monthlyAmt = tspPhase2Amount;
-              wd = Math.min(monthlyAmt * 12, balance);
+              let phasePct = tspPhase1Amount; // now a % rate
+              if (age >= tspPhase3Age) phasePct = tspPhase3Amount;
+              else if (age >= tspPhase2Age) phasePct = tspPhase2Amount;
+              wd = Math.min(balance * (phasePct / 100), balance);
             } else if (tspWithdrawalType === 'amount') {
               let base = withdrawal;
               if (tspCoverTaxes) base = base / (1 - taxBracket / 100);
@@ -1332,6 +1397,111 @@ const BearingApp = () => {
 
   const projections = hasCalculated ? calculateProjections() : [];
 
+  // ── WILL I BE OKAY — Survivor Scenario Calculator ─────────────────────────
+  const calculateSurvivorScenario = (yearsFromNow) => {
+    if (!hasCalculated || projections.length === 0) return null;
+
+    // Parse DOB to get current age
+    let birthYear;
+    const dobStr = dob;
+    if (dobStr.includes('-')) {
+      const parts = dobStr.split('-');
+      birthYear = parseInt(parts[0]);
+    } else {
+      const parts = dobStr.split('/');
+      birthYear = parseInt(parts[2]);
+    }
+    const currentYear = new Date().getFullYear();
+    const startAge = currentYear - birthYear;
+    const deathYear = currentYear + yearsFromNow;
+    const deathAge = startAge + yearsFromNow;
+
+    // Find projection row at death year and 10 years after
+    const atDeath = projections.find(p => p.year === deathYear) || projections[yearsFromNow] || projections[projections.length - 1];
+    const survivorRows = projections.filter(p => p.year > deathYear);
+    const nearTerm = survivorRows[0]; // first year after death
+
+    if (!nearTerm) return null;
+
+    // Survivor income components
+    // FERS: survivor gets fersSurvivorRate% of Person 1's pension
+    const survivorFers = nearTerm.fersGross * (fersSurvivorRate / 100);
+    
+    // SS: survivor gets the higher of their own SS or Person 1's SS (simplified: max of the two)
+    const person1SsAtDeath = nearTerm.ss; // already in projection
+    const person2SsAnnual = person2SsAmount * (isMonthly ? 12 : 1);
+    const survivorSs = Math.max(person1SsAtDeath, person2SsAnnual);
+
+    // TSP + other investments at death
+    const tspAtDeath = atDeath.tspBalance;
+    const otherAtDeath = (atDeath.otherAccountsBalances || []).reduce((s, b) => s + b, 0);
+    const totalInvestmentsAtDeath = tspAtDeath + otherAtDeath;
+
+    // Rental at death
+    const rentalAtDeath = atDeath.rentalNet || 0;
+
+    // Survivor annual income (base, without investment draws)
+    const survivorBaseIncome = survivorFers + survivorSs + rentalAtDeath;
+
+    // Assume survivor continues same TSP withdrawal rate
+    const survivorTspWithdrawal = nearTerm.tspWithdrawal;
+    const survivorOtherIncome = nearTerm.otherAccountsIncome || 0;
+
+    const survivorTotalIncome = survivorBaseIncome + survivorTspWithdrawal + survivorOtherIncome;
+
+    // Expenses at that point (from projection)
+    const projectedExpenses = nearTerm.expenses + nearTerm.budget;
+
+    // Coverage ratio
+    const coverageRatio = projectedExpenses > 0 ? survivorTotalIncome / projectedExpenses : 1;
+    const monthlyNet = Math.round((survivorTotalIncome - projectedExpenses) / 12);
+
+    // Score
+    let verdict, verdictColor, verdictBg;
+    if (coverageRatio >= 1.1) {
+      verdict = "✅ You're Covered";
+      verdictColor = '#28a745';
+      verdictBg = 'rgba(40,167,69,0.15)';
+    } else if (coverageRatio >= 0.85) {
+      verdict = '⚠️ Watch This';
+      verdictColor = '#ffc107';
+      verdictBg = 'rgba(255,193,7,0.15)';
+    } else {
+      verdict = '🚨 Needs Attention';
+      verdictColor = '#dc3545';
+      verdictBg = 'rgba(220,53,69,0.15)';
+    }
+
+    // Key concern
+    let concern = null;
+    if (tspAtDeath < 200000) concern = 'TSP balance is low at this point';
+    else if (coverageRatio < 1) concern = 'Income may not cover expenses';
+    else if (survivorSs < person1SsAtDeath * 0.5) concern = 'Significant SS reduction';
+    else concern = 'Portfolio looks sustainable';
+
+    return {
+      yearsFromNow,
+      deathAge,
+      deathYear,
+      survivorFers: Math.round(survivorFers),
+      survivorSs: Math.round(survivorSs),
+      survivorTspWithdrawal: Math.round(survivorTspWithdrawal),
+      survivorOtherIncome: Math.round(survivorOtherIncome),
+      rentalAtDeath: Math.round(rentalAtDeath),
+      survivorTotalIncome: Math.round(survivorTotalIncome),
+      projectedExpenses: Math.round(projectedExpenses),
+      tspAtDeath: Math.round(tspAtDeath),
+      otherAtDeath: Math.round(otherAtDeath),
+      totalInvestmentsAtDeath: Math.round(totalInvestmentsAtDeath),
+      monthlyNet,
+      coverageRatio: Math.round(coverageRatio * 100),
+      verdict,
+      verdictColor,
+      verdictBg,
+      concern
+    };
+  };
+
   // ── ASSESSMENT WIZARD ────────────────────────────────────────────────────
 
   // ── WIZARD QUESTION BANK ─────────────────────────────────────────────────
@@ -1377,8 +1547,8 @@ const BearingApp = () => {
     },
     {
       id: 'currentTspWithdrawal',
-      label: "How much are you currently withdrawing from TSP each month?",
-      type: 'currency', placeholder: 'e.g. 2500',
+      label: "What % of your TSP do you withdraw annually? (4% is the classic rule — enter 4 for 4%)",
+      type: 'number', placeholder: 'e.g. 4', min: 0, max: 20,
       conditional: a => a.alreadyRetired === 'yes',
     },
     {
@@ -1415,7 +1585,7 @@ const BearingApp = () => {
       id: 'topConcernRetired',
       label: "What's your biggest financial concern right now?",
       type: 'choice',
-      choices: ['Running out of money', 'Healthcare costs', 'Market volatility', 'Leaving money to family', 'Managing RMDs'],
+      choices: ['Running out of money', 'Healthcare costs', 'Market volatility', 'Survivor planning', 'Managing RMDs'],
       conditional: a => a.alreadyRetired === 'yes',
     },
 
@@ -1452,9 +1622,21 @@ const BearingApp = () => {
     },
     {
       id: 'otherSavings',
-      label: "Any other retirement savings? (IRA, 401k, brokerage)",
+      label: "Any other retirement savings? (IRA, Roth IRA, brokerage — combined total)",
       type: 'currency', placeholder: 'Enter $0 if none',
       conditional: a => a.alreadyRetired === 'no',
+    },
+    {
+      id: 'hasRental',
+      label: "Do you have a rental property that generates income or costs?",
+      type: 'yesno',
+      conditional: a => a.alreadyRetired === 'no' || a.alreadyRetired === 'yes',
+    },
+    {
+      id: 'rentalMonthlyNetWizard',
+      label: "Roughly what is your rental's monthly net? (income minus all costs — use negative for a loss)",
+      type: 'number', placeholder: 'e.g. -500 or 300',
+      conditional: a => a.hasRental === 'yes',
     },
     {
       id: 'monthlyExpensesPlanning',
@@ -1478,7 +1660,7 @@ const BearingApp = () => {
       id: 'topConcern',
       label: "What's your biggest retirement concern?",
       type: 'choice',
-      choices: ['Running out of money', 'Healthcare costs', 'Market volatility', 'Leaving money to family', 'Timing my retirement right'],
+      choices: ['Running out of money', 'Healthcare costs', 'Market volatility', 'Survivor planning', 'Timing my retirement right'],
       conditional: a => a.alreadyRetired === 'no',
     },
   ];
@@ -1583,7 +1765,7 @@ const BearingApp = () => {
       'Running out of money': { section: 'TSP & Withdrawals', text: 'Run the Monte Carlo simulation — 5,000 scenarios, instant probability score.' },
       'Healthcare costs': { section: 'Budget', text: 'Add a dedicated healthcare line to your budget. Federal retirees average $6,000+/year out of pocket.' },
       'Market volatility': { section: 'TSP & Withdrawals', text: 'The phased withdrawal schedule lets you plan for reduced withdrawals in down years.' },
-      'Leaving money to family': { section: 'TSP & Withdrawals', text: 'The percentage withdrawal method preserves balance better than a fixed dollar amount.' },
+      'Survivor planning': { section: 'About You', text: 'Use the "Will I Be Okay?" button after calculating to see survivor income scenarios across 4 timeframes.' },
       'Timing my retirement right': { section: 'FERS Pension', text: 'Model 62 vs. 63 — the 1.1% multiplier plus one extra year can mean $200+/mo more for life.' },
       'Managing RMDs': { section: 'TSP & Withdrawals', text: 'The RMD schedule in Bearing shows your required distributions by year and flags when RMDs override your planned withdrawal.' },
     };
@@ -1614,9 +1796,14 @@ const BearingApp = () => {
     setTspBalance(r.tsp);
 
     if (r.isRetired) {
-      // Retired path — set actual withdrawal, mark as already retired
-      setTspWithdrawalAmount(r.currentTspWithdrawal);
-      setTspWithdrawalType('amount');
+      // Retired path — set % withdrawal rate from wizard, enable phased schedule
+      const withdrawalPct = parseFloat(answers.currentTspWithdrawal) || 4.0;
+      setTspWithdrawalType('percent');
+      setTspWithdrawalPercent(withdrawalPct);
+      setTspScheduleEnabled(true);
+      setTspPhase1Amount(withdrawalPct);
+      setTspPhase2Amount(Math.max(2.5, withdrawalPct - 0.5));
+      setTspPhase3Amount(Math.max(2.0, withdrawalPct - 1.0));
       setMonthlyGrossPension(Math.round(r.monthlyPension));
     } else {
       // Planning path — set projection inputs
@@ -1631,6 +1818,27 @@ const BearingApp = () => {
       setPerson2Enabled(true);
       const spouseBirthYear = new Date().getFullYear() - parseInt(spouseAge);
       setPerson2Dob(`${spouseBirthYear}-06-15`);
+    }
+
+    // Rental property
+    if (answers.hasRental === 'yes' && answers.rentalMonthlyNetWizard) {
+      setRentalMonthlyNet(Number(answers.rentalMonthlyNetWizard) || 0);
+    }
+
+    // Other savings → add as Traditional IRA account
+    const otherSav = parseFloat(answers.otherSavings) || 0;
+    if (otherSav > 0) {
+      setOtherAccounts([{
+        id: Date.now(),
+        type: 'traditional_ira',
+        name: 'Other Savings (IRA/Brokerage)',
+        balance: otherSav,
+        growthRate: 6.5,
+        monthlyWithdrawal: 0,
+        startAge: 65,
+        cola: 2.0,
+        color: '#9966FF'
+      }]);
     }
 
     // Budget — split expenses proportionally
@@ -1883,7 +2091,9 @@ const BearingApp = () => {
     <div style={{ 
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', 
       background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%)',
-      minHeight: '100vh'
+      minHeight: '100vh',
+      filter: darkMode ? 'none' : 'invert(1) hue-rotate(180deg)',
+      transition: 'filter 0.3s ease'
     }}>
       {showWizard && renderWizard()}
       {/* Header */}
@@ -1918,7 +2128,7 @@ const BearingApp = () => {
               FINANCIAL NAVIGATION SYSTEM
             </div>
             <div style={{ color: '#999', fontSize: '10px', marginTop: '4px', fontStyle: 'italic' }}>
-              v3.7.00 — Full Save + Assessment Wizard
+              v3.7.10 — Person 2 DOB fix, assessment updates
             </div>
           </div>
         </div>
@@ -3411,88 +3621,11 @@ const BearingApp = () => {
                   }}
                 />
 
-                <label style={{ display: 'block', marginBottom: '12px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', fontWeight: '500' }}>
-                  Withdrawal Method
-                </label>
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-                  <button
-                    onClick={() => setTspWithdrawalType('amount')}
-                    style={{
-                      flex: 1,
-                      padding: '10px',
-                      background: tspWithdrawalType === 'amount' ? 'rgba(255, 153, 51, 0.3)' : 'rgba(255, 255, 255, 0.05)',
-                      color: '#ffffff',
-                      border: tspWithdrawalType === 'amount' ? '1px solid rgba(255, 153, 51, 0.5)' : '1px solid #ddd',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontWeight: tspWithdrawalType === 'amount' ? '600' : '400',
-                      fontSize: '13px'
-                    }}
-                  >
-                    Fixed Amount
-                  </button>
-                  <button
-                    onClick={() => setTspWithdrawalType('percent')}
-                    style={{
-                      flex: 1,
-                      padding: '10px',
-                      background: tspWithdrawalType === 'percent' ? 'rgba(255, 153, 51, 0.3)' : 'rgba(255, 255, 255, 0.05)',
-                      color: '#ffffff',
-                      border: tspWithdrawalType === 'percent' ? '1px solid rgba(255, 153, 51, 0.5)' : '1px solid #ddd',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontWeight: tspWithdrawalType === 'percent' ? '600' : '400',
-                      fontSize: '13px'
-                    }}
-                  >
-                    Percentage
-                  </button>
+                {/* Phased Withdrawal - always percentage based */}
+                <div style={{ marginBottom: '16px', padding: '12px', background: 'rgba(255,153,51,0.08)', border: '1px solid rgba(255,153,51,0.25)', borderRadius: '6px', fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>
+                  <div style={{ color: '#FF9933', fontWeight: '700', marginBottom: '4px', fontSize: '13px' }}>📐 The 4% Rule</div>
+                  Withdraw 4% of your balance annually — historically sustainable over 30+ years. Use phased schedule below to adjust by life stage.
                 </div>
-
-                {tspWithdrawalType === 'amount' ? (
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', fontWeight: '500' }}>
-                      Monthly Withdrawal Amount
-                    </label>
-                    <div style={{ position: 'relative', marginBottom: '15px' }}>
-                      <span style={{ position: 'absolute', left: '12px', top: '11px', color: '#999', fontSize: '14px' }}>$</span>
-                      <input
-                        type="number"
-                        value={tspWithdrawalAmount}
-                        onChange={(e) => setTspWithdrawalAmount(Number(e.target.value))}
-                        style={{
-                          width: '100%', boxSizing: 'border-box',
-                          padding: '10px 10px 10px 24px',
-                          background: 'rgba(255, 255, 255, 0.05)', color: 'rgba(255, 255, 255, 0.9)',
-                          border: '1px solid #ddd',
-                          borderRadius: '4px',
-                          fontSize: '14px'
-                        }}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', fontWeight: '500' }}>
-                      Annual Withdrawal Rate (% of balance)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={tspWithdrawalPercent}
-                      onChange={(e) => setTspWithdrawalPercent(Number(e.target.value))}
-                      style={{
-                        width: '100%', boxSizing: 'border-box',
-                        padding: '10px',
-                        background: 'rgba(255, 255, 255, 0.05)', color: 'rgba(255, 255, 255, 0.9)',
-                        border: '1px solid #ddd',
-                        borderRadius: '4px',
-                        fontSize: '14px',
-                        marginBottom: '15px'
-                      }}
-                    />
-                  </div>
-                )}
 
                 <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', fontWeight: '500' }}>
                   Annual COLA on Withdrawals (%)
@@ -3551,62 +3684,40 @@ const BearingApp = () => {
 
                   {tspScheduleEnabled && (
                     <div style={{ marginTop: '12px' }}>
-                      {/* Phase 1 */}
-                      <div style={{ marginBottom: '14px', padding: '12px', background: 'rgba(255,255,255,0.04)', borderRadius: '6px', border: '1px solid rgba(255,153,51,0.25)' }}>
-                        <div style={{ color: '#FF9933', fontWeight: '600', fontSize: '12px', marginBottom: '8px' }}>📍 Phase 1 — Starting Withdrawal (from retirement)</div>
-                        <label style={{ display: 'block', marginBottom: '4px', color: 'rgba(255,255,255,0.7)', fontSize: '12px' }}>Monthly Amount</label>
-                        <div style={{ position: 'relative' }}>
-                          <span style={{ position: 'absolute', left: '10px', top: '10px', color: '#999', fontSize: '13px' }}>$</span>
-                          <input type="number" value={tspPhase1Amount} onChange={(e) => setTspPhase1Amount(Number(e.target.value))}
-                            style={{ width: '100%', boxSizing: 'border-box', padding: '8px 8px 8px 22px', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.9)', border: '1px solid rgba(255,153,51,0.3)', borderRadius: '4px', fontSize: '13px' }} />
-                        </div>
-                      </div>
-
-                      {/* Phase 2 */}
-                      <div style={{ marginBottom: '14px', padding: '12px', background: 'rgba(255,255,255,0.04)', borderRadius: '6px', border: '1px solid rgba(91,192,222,0.25)' }}>
-                        <div style={{ color: '#5bc0de', fontWeight: '600', fontSize: '12px', marginBottom: '8px' }}>📍 Phase 2 — Change at Age</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                          <div>
-                            <label style={{ display: 'block', marginBottom: '4px', color: 'rgba(255,255,255,0.7)', fontSize: '12px' }}>Start Age</label>
-                            <input type="number" value={tspPhase2Age} onChange={(e) => setTspPhase2Age(Number(e.target.value))}
-                              style={{ width: '100%', boxSizing: 'border-box', padding: '8px', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.9)', border: '1px solid rgba(91,192,222,0.3)', borderRadius: '4px', fontSize: '13px' }} />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', marginBottom: '4px', color: 'rgba(255,255,255,0.7)', fontSize: '12px' }}>Monthly Amount</label>
-                            <div style={{ position: 'relative' }}>
-                              <span style={{ position: 'absolute', left: '10px', top: '10px', color: '#999', fontSize: '13px' }}>$</span>
-                              <input type="number" value={tspPhase2Amount} onChange={(e) => setTspPhase2Amount(Number(e.target.value))}
-                                style={{ width: '100%', boxSizing: 'border-box', padding: '8px 8px 8px 22px', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.9)', border: '1px solid rgba(91,192,222,0.3)', borderRadius: '4px', fontSize: '13px' }} />
+                      {[
+                        { label: 'Phase 1', color: '#FF9933', borderColor: 'rgba(255,153,51,0.3)', pct: tspPhase1Amount, setPct: setTspPhase1Amount, age: tspPhase1Age, setAge: setTspPhase1Age, ageLabel: 'Start Age' },
+                        { label: 'Phase 2', color: '#5bc0de', borderColor: 'rgba(91,192,222,0.3)', pct: tspPhase2Amount, setPct: setTspPhase2Amount, age: tspPhase2Age, setAge: setTspPhase2Age, ageLabel: 'Start Age' },
+                        { label: 'Phase 3', color: '#CC99CC', borderColor: 'rgba(204,153,204,0.3)', pct: tspPhase3Amount, setPct: setTspPhase3Amount, age: tspPhase3Age, setAge: setTspPhase3Age, ageLabel: 'Start Age' }
+                      ].map((phase, idx) => {
+                        const annualWd = tspBalance * (phase.pct / 100);
+                        const monthlyWd = annualWd / 12;
+                        return (
+                          <div key={idx} style={{ marginBottom: '12px', padding: '12px', background: 'rgba(255,255,255,0.04)', borderRadius: '6px', border: `1px solid ${phase.borderColor}` }}>
+                            <div style={{ color: phase.color, fontWeight: '600', fontSize: '12px', marginBottom: '8px' }}>📍 {phase.label}</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                              <div>
+                                <label style={{ display: 'block', marginBottom: '4px', color: 'rgba(255,255,255,0.7)', fontSize: '11px' }}>{phase.ageLabel}</label>
+                                <input type="number" value={phase.age} onChange={(e) => phase.setAge(Number(e.target.value))}
+                                  style={{ width: '100%', boxSizing: 'border-box', padding: '8px', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.9)', border: `1px solid ${phase.borderColor}`, borderRadius: '4px', fontSize: '13px' }} />
+                              </div>
+                              <div>
+                                <label style={{ display: 'block', marginBottom: '4px', color: 'rgba(255,255,255,0.7)', fontSize: '11px' }}>Annual Rate (%)</label>
+                                <input type="number" step="0.1" value={phase.pct} onChange={(e) => phase.setPct(Number(e.target.value))}
+                                  style={{ width: '100%', boxSizing: 'border-box', padding: '8px', background: 'rgba(255,255,255,0.05)', color: phase.color, border: `1px solid ${phase.borderColor}`, borderRadius: '4px', fontSize: '13px', fontWeight: '600' }} />
+                              </div>
+                            </div>
+                            <div style={{ marginTop: '6px', fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>
+                              ≈ <strong style={{ color: phase.color }}>${Math.round(monthlyWd).toLocaleString()}/mo</strong> · ${Math.round(annualWd).toLocaleString()}/yr based on current balance
                             </div>
                           </div>
-                        </div>
-                      </div>
-
-                      {/* Phase 3 */}
-                      <div style={{ padding: '12px', background: 'rgba(255,255,255,0.04)', borderRadius: '6px', border: '1px solid rgba(204,153,204,0.25)' }}>
-                        <div style={{ color: '#CC99CC', fontWeight: '600', fontSize: '12px', marginBottom: '8px' }}>📍 Phase 3 — Change at Age</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                          <div>
-                            <label style={{ display: 'block', marginBottom: '4px', color: 'rgba(255,255,255,0.7)', fontSize: '12px' }}>Start Age</label>
-                            <input type="number" value={tspPhase3Age} onChange={(e) => setTspPhase3Age(Number(e.target.value))}
-                              style={{ width: '100%', boxSizing: 'border-box', padding: '8px', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.9)', border: '1px solid rgba(204,153,204,0.3)', borderRadius: '4px', fontSize: '13px' }} />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', marginBottom: '4px', color: 'rgba(255,255,255,0.7)', fontSize: '12px' }}>Monthly Amount</label>
-                            <div style={{ position: 'relative' }}>
-                              <span style={{ position: 'absolute', left: '10px', top: '10px', color: '#999', fontSize: '13px' }}>$</span>
-                              <input type="number" value={tspPhase3Amount} onChange={(e) => setTspPhase3Amount(Number(e.target.value))}
-                                style={{ width: '100%', boxSizing: 'border-box', padding: '8px 8px 8px 22px', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.9)', border: '1px solid rgba(204,153,204,0.3)', borderRadius: '4px', fontSize: '13px' }} />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                        );
+                      })}
 
                       {/* Summary */}
-                      <div style={{ marginTop: '12px', padding: '10px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', fontSize: '11px', color: 'rgba(255,255,255,0.6)', lineHeight: '1.8' }}>
-                        <div>🟠 <strong style={{ color: '#FF9933' }}>Phase 1:</strong> ${tspPhase1Amount.toLocaleString()}/mo from retirement</div>
-                        <div>🔵 <strong style={{ color: '#5bc0de' }}>Phase 2:</strong> ${tspPhase2Amount.toLocaleString()}/mo starting age {tspPhase2Age}</div>
-                        <div>🟣 <strong style={{ color: '#CC99CC' }}>Phase 3:</strong> ${tspPhase3Amount.toLocaleString()}/mo starting age {tspPhase3Age}</div>
+                      <div style={{ marginTop: '4px', padding: '10px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', fontSize: '11px', color: 'rgba(255,255,255,0.6)', lineHeight: '1.8' }}>
+                        <div>🟠 <strong style={{ color: '#FF9933' }}>Phase 1:</strong> {tspPhase1Amount}% from age {tspPhase1Age} (≈ ${Math.round(tspBalance * tspPhase1Amount / 100 / 12).toLocaleString()}/mo)</div>
+                        <div>🔵 <strong style={{ color: '#5bc0de' }}>Phase 2:</strong> {tspPhase2Amount}% from age {tspPhase2Age} (≈ ${Math.round(tspBalance * tspPhase2Amount / 100 / 12).toLocaleString()}/mo)</div>
+                        <div>🟣 <strong style={{ color: '#CC99CC' }}>Phase 3:</strong> {tspPhase3Amount}% from age {tspPhase3Age} (≈ ${Math.round(tspBalance * tspPhase3Amount / 100 / 12).toLocaleString()}/mo)</div>
                         <div style={{ marginTop: '6px', color: 'rgba(255,153,51,0.8)', fontStyle: 'italic' }}>⚠️ IRS RMD minimum overrides lower planned amounts at age 73+</div>
                       </div>
                     </div>
@@ -3815,6 +3926,141 @@ const BearingApp = () => {
             )}
           </div>
 
+          {/* OTHER INVESTMENT ACCOUNTS SECTION */}
+          <div style={{ marginBottom: '15px' }}>
+            <div
+              onClick={() => toggleSection('otherAccounts')}
+              style={{
+                background: openSections.otherAccounts ? 'rgba(92, 184, 92, 0.25)' : 'rgba(92, 184, 92, 0.12)',
+                backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+                border: '1px solid rgba(92, 184, 92, 0.4)',
+                padding: '14px 16px', cursor: 'pointer', color: '#ffffff',
+                fontWeight: '600', display: 'flex', justifyContent: 'space-between',
+                alignItems: 'center', borderRadius: '4px', fontSize: '15px'
+              }}
+            >
+              <span>🏦 Other Investment Accounts</span>
+              <span style={{ fontSize: '12px' }}>{openSections.otherAccounts ? '▲' : '▼'}</span>
+            </div>
+            {openSections.otherAccounts && (
+              <div style={{ padding: '16px 0 0 0' }}>
+                {/* Account type buttons */}
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                  {[
+                    { type: 'traditional_ira', label: '🏛️ Traditional IRA', color: '#5bc0de' },
+                    { type: 'roth_ira', label: '🌱 Roth IRA', color: '#5cb85c' },
+                    { type: 'brokerage', label: '📈 Brokerage', color: '#CC99CC' }
+                  ].map(({ type, label, color }) => (
+                    <button
+                      key={type}
+                      onClick={() => {
+                        const defaults = {
+                          traditional_ira: { name: 'Traditional IRA', growthRate: 6.5, monthlyWithdrawal: 500, cola: 2.0, startAge: 65, color: '#5bc0de' },
+                          roth_ira: { name: 'Roth IRA', growthRate: 7.0, monthlyWithdrawal: 500, cola: 2.0, startAge: 65, color: '#5cb85c' },
+                          brokerage: { name: 'Brokerage Account', growthRate: 6.0, monthlyWithdrawal: 500, cola: 2.0, startAge: 65, color: '#CC99CC' }
+                        };
+                        setOtherAccounts(prev => [...prev, { id: Date.now(), type, balance: 0, ...defaults[type] }]);
+                      }}
+                      style={{
+                        padding: '8px 14px', background: `rgba(${color === '#5bc0de' ? '91,192,222' : color === '#5cb85c' ? '92,184,92' : '204,153,204'},0.2)`,
+                        border: `1px solid ${color}`, borderRadius: '6px', color: '#fff',
+                        cursor: 'pointer', fontSize: '12px', fontWeight: '600'
+                      }}
+                    >
+                      + {label}
+                    </button>
+                  ))}
+                </div>
+
+                {otherAccounts.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: '20px', color: 'rgba(255,255,255,0.4)', fontSize: '13px' }}>
+                    Add IRAs or brokerage accounts to include them in your projections
+                  </div>
+                )}
+
+                {otherAccounts.map((acc, idx) => (
+                  <div key={acc.id} style={{
+                    background: 'rgba(255,255,255,0.05)', border: `1px solid ${acc.color}44`,
+                    borderRadius: '8px', padding: '14px', marginBottom: '12px'
+                  }}>
+                    {/* Header row */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                      <input
+                        value={acc.name}
+                        onChange={e => setOtherAccounts(prev => prev.map((a, i) => i === idx ? { ...a, name: e.target.value } : a))}
+                        style={{
+                          background: 'transparent', border: 'none', borderBottom: `1px solid ${acc.color}88`,
+                          color: acc.color, fontWeight: '700', fontSize: '14px', width: '60%', outline: 'none'
+                        }}
+                      />
+                      <button
+                        onClick={() => setOtherAccounts(prev => prev.filter((_, i) => i !== idx))}
+                        style={{ background: 'rgba(220,53,69,0.3)', border: '1px solid #dc3545', borderRadius: '4px', color: '#dc3545', cursor: 'pointer', padding: '2px 8px', fontSize: '11px' }}
+                      >✕ Remove</button>
+                    </div>
+
+                    {/* Tax treatment note */}
+                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', marginBottom: '10px', fontStyle: 'italic' }}>
+                      {acc.type === 'traditional_ira' ? '⚠️ Withdrawals taxed as ordinary income' :
+                       acc.type === 'roth_ira' ? '✅ Withdrawals tax-free' :
+                       '📊 Capital gains treatment (simplified)'}
+                    </div>
+
+                    {/* Fields grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', color: 'rgba(255,255,255,0.6)', marginBottom: '4px' }}>Current Balance ($)</label>
+                        <input type="number" value={acc.balance}
+                          onChange={e => setOtherAccounts(prev => prev.map((a, i) => i === idx ? { ...a, balance: Number(e.target.value) } : a))}
+                          style={{ width: '100%', boxSizing: 'border-box', padding: '8px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', color: '#fff', fontSize: '13px' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', color: 'rgba(255,255,255,0.6)', marginBottom: '4px' }}>Growth Rate (%)</label>
+                        <input type="number" step="0.1" value={acc.growthRate}
+                          onChange={e => setOtherAccounts(prev => prev.map((a, i) => i === idx ? { ...a, growthRate: Number(e.target.value) } : a))}
+                          style={{ width: '100%', boxSizing: 'border-box', padding: '8px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', color: '#fff', fontSize: '13px' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', color: 'rgba(255,255,255,0.6)', marginBottom: '4px' }}>Monthly Withdrawal ($)</label>
+                        <input type="number" value={acc.monthlyWithdrawal}
+                          onChange={e => setOtherAccounts(prev => prev.map((a, i) => i === idx ? { ...a, monthlyWithdrawal: Number(e.target.value) } : a))}
+                          style={{ width: '100%', boxSizing: 'border-box', padding: '8px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', color: '#fff', fontSize: '13px' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', color: 'rgba(255,255,255,0.6)', marginBottom: '4px' }}>Start Withdrawal Age</label>
+                        <input type="number" value={acc.startAge}
+                          onChange={e => setOtherAccounts(prev => prev.map((a, i) => i === idx ? { ...a, startAge: Number(e.target.value) } : a))}
+                          style={{ width: '100%', boxSizing: 'border-box', padding: '8px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', color: '#fff', fontSize: '13px' }}
+                        />
+                      </div>
+                      <div style={{ gridColumn: '1 / -1' }}>
+                        <label style={{ display: 'block', fontSize: '11px', color: 'rgba(255,255,255,0.6)', marginBottom: '4px' }}>Annual COLA on Withdrawals (%)</label>
+                        <input type="number" step="0.1" value={acc.cola}
+                          onChange={e => setOtherAccounts(prev => prev.map((a, i) => i === idx ? { ...a, cola: Number(e.target.value) } : a))}
+                          style={{ width: '100%', boxSizing: 'border-box', padding: '8px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', color: '#fff', fontSize: '13px' }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {otherAccounts.length > 0 && (
+                  <div style={{ background: 'rgba(92,184,92,0.1)', border: '1px solid rgba(92,184,92,0.3)', borderRadius: '6px', padding: '10px 14px', fontSize: '12px', color: 'rgba(255,255,255,0.7)' }}>
+                    <strong style={{ color: '#5cb85c' }}>Total Balance: </strong>
+                    ${otherAccounts.reduce((sum, a) => sum + a.balance, 0).toLocaleString()}
+                    <span style={{ marginLeft: '16px' }}>
+                      <strong style={{ color: '#5cb85c' }}>Combined Monthly: </strong>
+                      ${otherAccounts.reduce((sum, a) => sum + a.monthlyWithdrawal, 0).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* SPENDING & TAXES GROUP */}
           <div style={{ marginBottom: '12px' }}>
             <div
@@ -3929,6 +4175,8 @@ const BearingApp = () => {
                         style={{
                           flex: 1,
                           padding: '8px',
+                          boxSizing: 'border-box',
+                          minWidth: 0,
                           background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
                           border: '1px solid #ddd',
                           borderRadius: '4px',
@@ -3937,12 +4185,14 @@ const BearingApp = () => {
                       />
                       <input
                         type="number"
-                        placeholder="Amount"
+                        placeholder="Amount ($)"
                         value={exp.amount}
                         onChange={(e) => updateExpense(exp.id, 'amount', Number(e.target.value))}
                         style={{
                           flex: 1,
                           padding: '8px',
+                          boxSizing: 'border-box',
+                          minWidth: 0,
                           background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: 'rgba(255, 255, 255, 0.9)',
                           border: '1px solid #ddd',
                           borderRadius: '4px',
@@ -4015,6 +4265,25 @@ const BearingApp = () => {
                 </button>
               </div>
             )}
+          </div>
+
+          {/* Medical / Long Term Care Placeholder */}
+          <div style={{ marginBottom: '15px' }}>
+            <div style={{
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px dashed rgba(255,153,51,0.35)',
+              padding: '14px 16px', borderRadius: '4px',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              cursor: 'not-allowed', opacity: 0.6
+            }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#fff', fontWeight: '600', fontSize: '15px' }}>
+                <span style={{ fontSize: '18px' }}>🏥</span>
+                Medical / Long Term Care
+              </span>
+              <span style={{ fontSize: '11px', background: 'rgba(255,153,51,0.2)', border: '1px solid rgba(255,153,51,0.4)', borderRadius: '10px', padding: '2px 8px', color: 'rgba(255,153,51,0.9)', fontWeight: '600' }}>
+                Coming Soon
+              </span>
+            </div>
           </div>
 
           {/* Budget Section */}
@@ -4833,6 +5102,44 @@ const BearingApp = () => {
                   </details>
                 ))}
                 
+                {/* Big Picture Integration */}
+                <div style={{ marginTop: '16px', padding: '14px', background: 'rgba(255,153,51,0.08)', border: '1px solid rgba(255,153,51,0.3)', borderRadius: '6px' }}>
+                  <h4 style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#FF9933', fontWeight: '700' }}>📊 Big Picture (Retirement Projections)</h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '12px' }}>
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <label style={{ display: 'block', marginBottom: '3px', color: 'rgba(255,255,255,0.7)', fontSize: '11px' }}>Est. Monthly Net (income minus all costs — use negative for a loss)</label>
+                      <input type="text" inputMode="numeric" value={rentalMonthlyNet} onChange={(e) => { const v = e.target.value; if (v === '' || v === '-' || !isNaN(Number(v))) setRentalMonthlyNet(v === '' || v === '-' ? v : Number(v)); }}
+                        style={{ width: '100%', boxSizing: 'border-box', padding: '6px 8px', fontSize: '13px', background: 'rgba(255,255,255,0.08)', color: rentalMonthlyNet < 0 ? '#dc3545' : 'rgba(255,255,255,0.9)', border: '1px solid rgba(255,153,51,0.4)', borderRadius: '4px' }} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '3px', color: 'rgba(255,255,255,0.7)', fontSize: '11px' }}>Purchase Price ($)</label>
+                      <input type="number" value={rentalPurchasePrice} onChange={(e) => setRentalPurchasePrice(Number(e.target.value))}
+                        style={{ width: '100%', boxSizing: 'border-box', padding: '6px 8px', fontSize: '13px', background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.9)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '3px', color: 'rgba(255,255,255,0.7)', fontSize: '11px' }}>Remaining Mortgage Balance ($)</label>
+                      <input type="number" value={rentalCurrentBalance} onChange={(e) => setRentalCurrentBalance(Number(e.target.value))}
+                        style={{ width: '100%', boxSizing: 'border-box', padding: '6px 8px', fontSize: '13px', background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.9)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '3px', color: 'rgba(255,255,255,0.7)', fontSize: '11px' }}>Est. Sale Year (0 = never)</label>
+                      <input type="number" value={rentalSaleYear} onChange={(e) => setRentalSaleYear(Number(e.target.value))}
+                        style={{ width: '100%', boxSizing: 'border-box', padding: '6px 8px', fontSize: '13px', background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.9)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '3px', color: 'rgba(255,255,255,0.7)', fontSize: '11px' }}>Est. Sale Price ($)</label>
+                      <input type="number" value={rentalSalePrice} onChange={(e) => setRentalSalePrice(Number(e.target.value))}
+                        style={{ width: '100%', boxSizing: 'border-box', padding: '6px 8px', fontSize: '13px', background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.9)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }} />
+                    </div>
+                  </div>
+                  {rentalSaleYear > 0 && rentalSalePrice > 0 && (
+                    <div style={{ marginTop: '10px', padding: '8px 10px', background: 'rgba(40,167,69,0.15)', border: '1px solid rgba(40,167,69,0.3)', borderRadius: '4px', fontSize: '11px', color: 'rgba(255,255,255,0.8)' }}>
+                      📈 Est. net proceeds in {rentalSaleYear}: <strong style={{ color: '#28a745' }}>${Math.max(0, rentalSalePrice - rentalCurrentBalance).toLocaleString()}</strong>
+                      {rentalPurchasePrice > 0 && <span style={{ marginLeft: '12px' }}>Est. gain: <strong style={{ color: '#5bc0de' }}>${Math.max(0, rentalSalePrice - rentalPurchasePrice).toLocaleString()}</strong></span>}
+                    </div>
+                  )}
+                </div>
+
                 <button
                   onClick={() => setRentalView(true)}
                   style={{
@@ -4853,6 +5160,161 @@ const BearingApp = () => {
               </div>
             )}
           </div>
+
+          {/* Will I Be Okay Modal */}
+          {showWillIOkay && ReactDOM.createPortal(
+            <div style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              background: 'rgba(0,0,0,0.8)', zIndex: 2000,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              backdropFilter: 'blur(6px)', padding: '20px'
+            }} onClick={() => setShowWillIOkay(false)}>
+              <div onClick={e => e.stopPropagation()} style={{
+                background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+                border: '1px solid rgba(92,184,92,0.4)',
+                borderRadius: '16px', padding: '32px',
+                width: '100%', maxWidth: '860px',
+                maxHeight: '90vh', overflowY: 'auto',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.6)'
+              }}>
+                {/* Header */}
+                <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+                  <div style={{ fontSize: '36px', marginBottom: '8px' }}>🧭</div>
+                  <h2 style={{ margin: 0, fontSize: '28px', fontWeight: '700', color: '#fff' }}>Will I Be Okay?</h2>
+                  <p style={{ margin: '8px 0 0 0', color: 'rgba(255,255,255,0.5)', fontSize: '14px' }}>
+                    Survivor income scenarios if primary account holder passes away
+                  </p>
+                </div>
+
+                {/* Scenario Cards */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px', marginBottom: '24px' }}>
+                  {[5, 10, 15, 20].map(years => {
+                    const s = calculateSurvivorScenario(years);
+                    if (!s) return null;
+                    return (
+                      <div key={years} style={{
+                        background: s.verdictBg,
+                        border: `1px solid ${s.verdictColor}44`,
+                        borderRadius: '12px', padding: '20px',
+                        position: 'relative'
+                      }}>
+                        {/* Timeframe header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
+                          <div>
+                            <div style={{ fontSize: '18px', fontWeight: '700', color: '#fff' }}>In {years} Years</div>
+                            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)' }}>{s.deathYear} · Age {s.deathAge}</div>
+                          </div>
+                          <div style={{
+                            background: s.verdictBg, border: `1px solid ${s.verdictColor}`,
+                            borderRadius: '20px', padding: '4px 12px',
+                            fontSize: '12px', fontWeight: '700', color: s.verdictColor
+                          }}>
+                            {s.verdict}
+                          </div>
+                        </div>
+
+                        {/* Coverage score */}
+                        <div style={{ marginBottom: '14px', padding: '12px', background: 'rgba(0,0,0,0.25)', borderRadius: '8px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                            <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>Income covers expenses</span>
+                            <span style={{ fontSize: '20px', fontWeight: '800', color: s.verdictColor }}>{s.coverageRatio}%</span>
+                          </div>
+                          <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: '4px', height: '6px' }}>
+                            <div style={{ background: s.verdictColor, borderRadius: '4px', height: '6px', width: `${Math.min(s.coverageRatio, 100)}%`, transition: 'width 0.5s ease' }} />
+                          </div>
+                          <div style={{ marginTop: '6px', fontSize: '12px', color: s.monthlyNet >= 0 ? '#5cb85c' : '#dc3545', fontWeight: '600' }}>
+                            {s.monthlyNet >= 0 ? '+' : ''}{formatCurrency(s.monthlyNet)}/mo surplus
+                          </div>
+                        </div>
+
+                        {/* Income breakdown */}
+                        <div style={{ fontSize: '12px', marginBottom: '12px' }}>
+                          <div style={{ color: 'rgba(255,255,255,0.5)', fontWeight: '600', marginBottom: '6px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Annual Survivor Income</div>
+                          {s.survivorFers > 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px', color: 'rgba(255,255,255,0.8)' }}>
+                              <span>FERS ({fersSurvivorRate}%)</span><span style={{ color: '#FF9933' }}>{formatCurrency(s.survivorFers)}</span>
+                            </div>
+                          )}
+                          {s.survivorSs > 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px', color: 'rgba(255,255,255,0.8)' }}>
+                              <span>Social Security</span><span style={{ color: '#9999FF' }}>{formatCurrency(s.survivorSs)}</span>
+                            </div>
+                          )}
+                          {s.survivorTspWithdrawal > 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px', color: 'rgba(255,255,255,0.8)' }}>
+                              <span>TSP Withdrawal</span><span style={{ color: '#5bc0de' }}>{formatCurrency(s.survivorTspWithdrawal)}</span>
+                            </div>
+                          )}
+                          {s.survivorOtherIncome > 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px', color: 'rgba(255,255,255,0.8)' }}>
+                              <span>Other Accounts</span><span style={{ color: '#5cb85c' }}>{formatCurrency(s.survivorOtherIncome)}</span>
+                            </div>
+                          )}
+                          {s.rentalAtDeath !== 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px', color: 'rgba(255,255,255,0.8)' }}>
+                              <span>Rental Net</span><span style={{ color: s.rentalAtDeath < 0 ? '#dc3545' : '#5cb85c' }}>{formatCurrency(s.rentalAtDeath)}</span>
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.15)', paddingTop: '6px', marginTop: '6px', fontWeight: '700', color: '#fff' }}>
+                            <span>Total Income</span><span style={{ color: '#28a745' }}>{formatCurrency(s.survivorTotalIncome)}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '3px', color: '#dc3545' }}>
+                            <span style={{ fontWeight: '700' }}>Expenses</span><span style={{ fontWeight: '700' }}>-{formatCurrency(s.projectedExpenses)}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.2)', paddingTop: '6px', marginTop: '6px', fontWeight: '800', fontSize: '13px' }}>
+                            <span style={{ color: '#fff' }}>Remaining</span>
+                            <span style={{ color: s.monthlyNet >= 0 ? '#5cb85c' : '#dc3545' }}>
+                              {formatCurrency(s.survivorTotalIncome - s.projectedExpenses)}/yr
+                              <span style={{ fontSize: '11px', fontWeight: '600', marginLeft: '6px', opacity: 0.8 }}>
+                                ({formatCurrency(s.monthlyNet)}/mo)
+                              </span>
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Investment nest egg */}
+                        <div style={{ padding: '10px', background: 'rgba(91,192,222,0.1)', borderRadius: '6px', fontSize: '12px' }}>
+                          <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px', fontWeight: '600', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Investment Nest Egg</div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'rgba(255,255,255,0.8)', marginBottom: '2px' }}>
+                            <span>TSP Balance</span><span style={{ color: '#5bc0de' }}>{formatCurrency(s.tspAtDeath)}</span>
+                          </div>
+                          {s.otherAtDeath > 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'rgba(255,255,255,0.8)', marginBottom: '2px' }}>
+                              <span>Other Accounts</span><span style={{ color: '#5cb85c' }}>{formatCurrency(s.otherAtDeath)}</span>
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '4px', marginTop: '4px', fontWeight: '700' }}>
+                            <span style={{ color: 'rgba(255,255,255,0.7)' }}>Total</span>
+                            <span style={{ color: '#fff' }}>{formatCurrency(s.totalInvestmentsAtDeath)}</span>
+                          </div>
+                        </div>
+
+                        {/* Key concern */}
+                        <div style={{ marginTop: '10px', fontSize: '11px', color: 'rgba(255,255,255,0.45)', fontStyle: 'italic' }}>
+                          💡 {s.concern}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Footer note */}
+                <div style={{ textAlign: 'center', fontSize: '12px', color: 'rgba(255,255,255,0.35)', marginBottom: '20px' }}>
+                  Estimates based on your current projections. SS survivor benefit shown as higher of two SS amounts.
+                </div>
+
+                {/* Close button */}
+                <button onClick={() => setShowWillIOkay(false)} style={{
+                  width: '100%', padding: '14px', background: 'rgba(255,255,255,0.08)',
+                  border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px',
+                  color: '#fff', cursor: 'pointer', fontWeight: '600', fontSize: '14px'
+                }}>
+                  Close
+                </button>
+              </div>
+            </div>,
+            document.body
+          )}
 
           {/* Scenario Picker Modal */}
           {showScenarioPicker && ReactDOM.createPortal(
@@ -5315,6 +5777,22 @@ const BearingApp = () => {
             🔄 Reset to Demo Data
           </button>
 
+          {/* Dark/Light Mode Toggle */}
+          <button
+            onClick={() => setDarkMode(prev => !prev)}
+            style={{
+              width: '100%', boxSizing: 'border-box',
+              padding: '10px',
+              background: darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+              border: '1px solid rgba(255,255,255,0.15)',
+              borderRadius: '6px', color: '#ffffff',
+              cursor: 'pointer', fontWeight: '600', fontSize: '13px',
+              marginTop: '8px'
+            }}
+          >
+            {darkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
+          </button>
+
         </div>
 
         {/* Right Panel - Results */}
@@ -5402,6 +5880,26 @@ const BearingApp = () => {
                   🏠 RENTAL
                 </button>
               </div>
+
+              {/* Will I Be Okay Button */}
+              {!rentalView && (
+                <button
+                  onClick={() => setShowWillIOkay(true)}
+                  style={{
+                    width: '100%', boxSizing: 'border-box',
+                    padding: '14px 20px',
+                    background: 'linear-gradient(135deg, rgba(92,184,92,0.25), rgba(92,184,92,0.12))',
+                    backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+                    color: '#ffffff', border: '2px solid rgba(92,184,92,0.5)',
+                    borderRadius: '8px', cursor: 'pointer', fontWeight: '700',
+                    fontSize: '15px', marginBottom: '16px',
+                    boxShadow: '0 4px 15px rgba(92,184,92,0.2)',
+                    letterSpacing: '0.5px'
+                  }}
+                >
+                  💚 Will I Be Okay?
+                </button>
+              )}
 
               {!rentalView ? (
                 <>
@@ -5536,7 +6034,23 @@ const BearingApp = () => {
                       </div>
                       <div>
                         <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', marginBottom: '8px', fontWeight: '600' }}>Simulation: 5,000 runs</div>
-                        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginBottom: '12px' }}>Using log-normal return distribution<br/>Mean: {tspGrowthRate}% | σ: {mcStdDevOverride ?? riskProfiles[mcRiskProfile].stdDev}%</div>
+                        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginBottom: '8px' }}>Using log-normal return distribution<br/>Mean: {tspGrowthRate}% | σ: {mcStdDevOverride ?? riskProfiles[mcRiskProfile].stdDev}%</div>
+                        {/* What's being simulated summary */}
+                        <div style={{ background: 'rgba(204,153,204,0.08)', border: '1px solid rgba(204,153,204,0.25)', borderRadius: '6px', padding: '10px', marginBottom: '12px', fontSize: '11px' }}>
+                          <div style={{ color: 'rgba(204,153,204,0.9)', fontWeight: '700', marginBottom: '6px' }}>📊 Simulating these assets:</div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'rgba(255,255,255,0.7)', marginBottom: '3px' }}>
+                            <span>TSP</span><span style={{ color: '#5bc0de' }}>${tspBalance.toLocaleString()}</span>
+                          </div>
+                          {otherAccounts.map((acc, i) => (
+                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', color: 'rgba(255,255,255,0.7)', marginBottom: '3px' }}>
+                              <span>{acc.name}</span><span style={{ color: acc.color }}>${acc.balance.toLocaleString()}</span>
+                            </div>
+                          ))}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.15)', marginTop: '6px', paddingTop: '6px', fontWeight: '700', color: '#fff' }}>
+                            <span>Total</span>
+                            <span style={{ color: '#28a745' }}>${(tspBalance + otherAccounts.reduce((s, a) => s + a.balance, 0)).toLocaleString()}</span>
+                          </div>
+                        </div>
                         <button onClick={runMonteCarlo} disabled={monteCarloRunning}
                           style={{ width: '100%', padding: '12px 12px 8px 12px', background: monteCarloRunning ? 'rgba(204,153,204,0.3)' : 'linear-gradient(135deg, rgba(204,153,204,0.8), rgba(204,153,204,0.5))', color: '#fff', border: 'none', borderRadius: '6px', cursor: monteCarloRunning ? 'wait' : 'pointer', fontWeight: '700', fontSize: '14px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
                           <span>{monteCarloRunning ? '⏳ Running...' : '🎲 Test Your Plan'}</span>
@@ -5764,6 +6278,8 @@ const BearingApp = () => {
                         <th style={{ padding: '10px 6px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)', whiteSpace: 'nowrap', fontSize: '12px' }}>Expenses</th>
                         <th style={{ padding: '10px 6px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)', whiteSpace: 'nowrap', fontSize: '12px' }}>Total Income</th>
                         <th style={{ padding: '10px 6px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)', whiteSpace: 'nowrap', fontSize: '12px' }}>TSP Balance</th>
+                        {otherAccounts.length > 0 && <th style={{ padding: '10px 6px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)', whiteSpace: 'nowrap', fontSize: '12px' }}>Other Accts</th>}
+                        {(rentalMonthlyNet !== 0 || rentalSaleYear > 0) && <th style={{ padding: '10px 6px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)', whiteSpace: 'nowrap', fontSize: '12px' }}>Rental Net</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -5800,6 +6316,16 @@ const BearingApp = () => {
                             <td style={{ padding: '8px 6px', textAlign: 'right', color: 'rgba(255, 255, 255, 0.9)', whiteSpace: 'nowrap' }}>{formatCurrency(proj.expenses)}</td>
                             <td style={{ padding: '8px 6px', textAlign: 'right', fontWeight: '600', color: 'rgba(255, 255, 255, 0.9)', whiteSpace: 'nowrap' }}>{formatCurrency(proj.totalIncome)}</td>
                             <td style={{ padding: '8px 6px', textAlign: 'right', color: 'rgba(255, 255, 255, 0.9)', whiteSpace: 'nowrap' }}>{formatCurrency(proj.tspBalance)}</td>
+                            {otherAccounts.length > 0 && (
+                              <td style={{ padding: '8px 6px', textAlign: 'right', color: '#5cb85c', whiteSpace: 'nowrap' }}>
+                                {formatCurrency((proj.otherAccountsBalances || []).reduce((s, b) => s + b, 0))}
+                              </td>
+                            )}
+                            {(rentalMonthlyNet !== 0 || rentalSaleYear > 0) && (
+                              <td style={{ padding: '8px 6px', textAlign: 'right', whiteSpace: 'nowrap', color: proj.rentalSaleProceeds > 0 ? '#28a745' : proj.rentalNet < 0 ? '#dc3545' : 'rgba(255,255,255,0.9)' }}>
+                                {proj.rentalSaleProceeds > 0 ? `+${formatCurrency(proj.rentalSaleProceeds)} 🏠` : formatCurrency(proj.rentalNet)}
+                              </td>
+                            )}
                           </tr>
                           
                           {/* Expanded Row Details */}
@@ -5933,6 +6459,12 @@ const BearingApp = () => {
                           <input type="checkbox" checked={showIncomeStreams.tspWithdrawal} onChange={(e) => setShowIncomeStreams({...showIncomeStreams, tspWithdrawal: e.target.checked})} />
                           TSP W/D
                         </label>
+                        {otherAccounts.map((acc, i) => (
+                          <label key={i} style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.7)', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                            <input type="checkbox" checked={showIncomeStreams[`otherAccount_${i}`] || false} onChange={(e) => setShowIncomeStreams({...showIncomeStreams, [`otherAccount_${i}`]: e.target.checked})} />
+                            {acc.name}
+                          </label>
+                        ))}
                       </div>
                     </div>
                     <ResponsiveContainer width="100%" height={300}>
@@ -5950,6 +6482,9 @@ const BearingApp = () => {
                         {showIncomeStreams.srs && <Line type="monotone" dataKey="srs" stroke="#CC99CC" name="SRS" strokeWidth={2} />}
                         {showIncomeStreams.ss && <Line type="monotone" dataKey="ss" stroke="#9999FF" name="Social Security" strokeWidth={2} />}
                         {showIncomeStreams.tspWithdrawal && <Line type="monotone" dataKey="tspWithdrawal" stroke="#5bc0de" name="TSP Withdrawal" strokeWidth={2} />}
+                        {otherAccounts.map((acc, i) => showIncomeStreams[`otherAccount_${i}`] && (
+                          <Line key={i} type="monotone" dataKey={d => d.otherAccountsBalances?.[i] ?? 0} stroke={acc.color} name={acc.name} strokeWidth={2} />
+                        ))}
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
