@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, ReferenceLine, ComposedChart } from 'recharts';
 
-console.log("✨ v3.7.13 - Full reset fix, unused var warning");
+console.log("✨ v3.7.14 - Per-account withdrawals in income chart, portfolio balance chart");
 console.log("🔵 APP.JS LOADED - Y-AXIS FIX VERSION 999");
 const BearingApp = () => {
   // Person 1 (primary) - Demo data defaults
@@ -160,6 +160,7 @@ const BearingApp = () => {
     ss: false,
     tspWithdrawal: false
   });
+  const [showBalances, setShowBalances] = useState({ tsp: true });
   
   // Inflation rate for budget
   const [inflationRate, setInflationRate] = useState(2.6);
@@ -1036,12 +1037,14 @@ const BearingApp = () => {
       // Calculate other investment account withdrawals
       let otherAccountsIncome = 0;
       let otherAccountsTaxable = 0;
+      const accountWithdrawals = otherAccounts.map(() => 0);
       otherAccounts.forEach((acc, idx) => {
         if (age >= acc.startAge && accountBalances[idx] > 0) {
           const yearsActive = age - acc.startAge;
           const annualWithdrawal = acc.monthlyWithdrawal * 12 * Math.pow(1 + acc.cola / 100, yearsActive);
           const wd = Math.min(annualWithdrawal, accountBalances[idx]);
           accountBalances[idx] = Math.max(0, accountBalances[idx] * (1 + acc.growthRate / 100) - wd);
+          accountWithdrawals[idx] = wd;
           otherAccountsIncome += wd;
           if (acc.type === 'traditional_ira') otherAccountsTaxable += wd;
         } else if (accountBalances[idx] > 0) {
@@ -1087,6 +1090,7 @@ const BearingApp = () => {
         tspBalance: Math.round(currentTspBalance),
         otherAccountsIncome: Math.round(otherAccountsIncome),
         otherAccountsBalances: accountBalances.map(b => Math.round(b)),
+        otherAccountsWithdrawals: accountWithdrawals.map(w => Math.round(w)),
         rentalNet: Math.round(rentalNet),
         rentalSaleProceeds: Math.round(rentalSaleProceeds),
         expenses: Math.round(yearExpenses),
@@ -2191,7 +2195,7 @@ const BearingApp = () => {
               FINANCIAL NAVIGATION SYSTEM
             </div>
             <div style={{ color: '#999', fontSize: '10px', marginTop: '4px', fontStyle: 'italic' }}>
-              v3.7.13 — Full reset fix, unused var warning
+              v3.7.14 — Per-account withdrawals in income chart, portfolio balance chart
             </div>
           </div>
         </div>
@@ -6572,26 +6576,42 @@ const BearingApp = () => {
                         {showIncomeStreams.ss && <Line type="monotone" dataKey="ss" stroke="#9999FF" name="Social Security" strokeWidth={2} />}
                         {showIncomeStreams.tspWithdrawal && <Line type="monotone" dataKey="tspWithdrawal" stroke="#5bc0de" name="TSP Withdrawal" strokeWidth={2} />}
                         {otherAccounts.map((acc, i) => showIncomeStreams[`otherAccount_${i}`] && (
-                          <Line key={i} type="monotone" dataKey={d => d.otherAccountsBalances?.[i] ?? 0} stroke={acc.color} name={acc.name} strokeWidth={2} />
+                          <Line key={i} type="monotone" dataKey={d => d.otherAccountsWithdrawals?.[i] ?? 0} stroke={acc.color} name={`${acc.name} (withdrawal)`} strokeWidth={2} />
                         ))}
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
 
-                  {/* Chart 2: TSP Balance */}
+                  {/* Chart 2: Portfolio Balance Over Time */}
                   <div style={{ background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '4px', padding: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', marginBottom: '30px' }}>
-                    <h3 style={{ color: 'rgba(255, 255, 255, 0.7)', marginBottom: '15px', fontWeight: '600', fontSize: '16px' }}>TSP Balance Over Time</h3>
+                    <h3 style={{ color: 'rgba(255, 255, 255, 0.7)', marginBottom: '12px', fontWeight: '600', fontSize: '16px' }}>Portfolio Balance Over Time</h3>
+                    {/* Balance toggles */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '15px', fontSize: '13px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: 'rgba(255,255,255,0.8)' }}>
+                        <input type="checkbox" checked={showBalances.tsp !== false} onChange={(e) => setShowBalances({...showBalances, tsp: e.target.checked})} />
+                        <span style={{ color: '#5bc0de' }}>■</span> TSP Balance
+                      </label>
+                      {otherAccounts.map((acc, i) => (
+                        <label key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: 'rgba(255,255,255,0.8)' }}>
+                          <input type="checkbox" checked={showBalances[`acc_${i}`] !== false} onChange={(e) => setShowBalances({...showBalances, [`acc_${i}`]: e.target.checked})} />
+                          <span style={{ color: acc.color || '#5cb85c' }}>■</span> {acc.name}
+                        </label>
+                      ))}
+                    </div>
                     <ResponsiveContainer width="100%" height={300}>
                       <LineChart data={projections}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#eeeeee" />
                         <XAxis dataKey="year" stroke="#999" style={{ fontSize: '12px' }} />
-                        <YAxis stroke="#999" style={{ fontSize: '12px' }} domain={[() => 0, () => 5000000]} />
+                        <YAxis stroke="#999" style={{ fontSize: '12px' }} domain={[() => 0, 'auto']} tickFormatter={(v) => `$${(v/1000000).toFixed(1)}M`} />
                         <Tooltip 
                           contentStyle={{ background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '4px', fontSize: '12px' }}
                           formatter={(value) => formatCurrency(value)}
                         />
                         <Legend wrapperStyle={{ fontSize: '13px' }} />
-                        <Line type="monotone" dataKey="tspBalance" stroke="#5bc0de" strokeWidth={3} name="TSP Balance" />
+                        {showBalances.tsp !== false && <Line type="monotone" dataKey="tspBalance" stroke="#5bc0de" strokeWidth={3} name="TSP Balance" />}
+                        {otherAccounts.map((acc, i) => showBalances[`acc_${i}`] !== false && (
+                          <Line key={i} type="monotone" dataKey={d => d.otherAccountsBalances?.[i] ?? 0} stroke={acc.color || '#5cb85c'} strokeWidth={2} name={acc.name} />
+                        ))}
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
